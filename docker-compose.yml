@@ -1,0 +1,45 @@
+version: '3.8'
+
+services:
+  # Archestra Platform - MCP orchestrator with built-in Chat UI
+  archestra:
+    image: archestra/platform:latest
+    ports:
+      - "9000:9000"   # API/MCP Gateway
+      - "3000:3000"   # Admin UI
+    volumes:
+      - archestra-postgres-data:/var/lib/postgresql/data
+      - archestra-app-data:/app/data
+    environment:
+      - ARCHESTRA_CHAT_GROQ_API_KEY=${GROQ_API_KEY}
+    restart: unless-stopped
+
+  # Backend API
+  backend:
+    build: ./backend
+    ports:
+      - "8080:8080"
+    environment:
+      - GROQ_API_KEY=${GROQ_API_KEY}
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+      - ARCHESTRA_URL=http://archestra:9000
+      - ARCHESTRA_TOKEN=${ARCHESTRA_TOKEN}
+      - PORT=8080
+    depends_on:
+      - archestra
+    restart: unless-stopped
+
+  # Frontend
+  frontend:
+    build: ./frontend
+    ports:
+      - "3001:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8080
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  archestra-postgres-data:
+  archestra-app-data:
