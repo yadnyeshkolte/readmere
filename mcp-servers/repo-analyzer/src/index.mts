@@ -284,7 +284,7 @@ if (process.env.PORT) {
   let transport: SSEServerTransport;
 
   app.get("/sse", async (req, res) => {
-    transport = new SSEServerTransport("/messages", res);
+    transport = new SSEServerTransport("/mcp/analyzer/messages", res);
     await server.connect(transport);
   });
 
