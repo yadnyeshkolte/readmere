@@ -4,18 +4,9 @@
 > A multi-agent system that automatically analyzes code and generates comprehensive, beautiful READMEs.
 
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
-![Status](https://img.shields.io/badge/status-hackathon--prototype-emerald)
 ![Powered By](https://img.shields.io/badge/powered%20by-Archestra-cyan)
 
-## 🏆 2 Fast 2 MCP Hackathon Submission
-
-This project was built for the **2 Fast 2 MCP** hackathon to demonstrate the power of the **Archestra Platform** in orchestrating complex, multi-agent workflows using the Model Context Protocol (MCP).
-
 ---
-
-## 🏁 Hackathon Nitro Deployment (100% Free)
-
-To deploy this project publically for the hackathon without paying for a VPS or keeping your laptop open:
 
 ### 1. The Engine (Backend + Agents) 🧟‍♂️
 Deploy the "All-in-One Engine" to **Hugging Face Spaces**:

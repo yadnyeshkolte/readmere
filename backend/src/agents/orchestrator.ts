@@ -1,4 +1,5 @@
 import { ArchestraService } from "../services/archestra.js";
+import { safeJsonParse } from "../utils/json.js";
 
 type ProgressCallback = (step: string, status: "pending" | "running" | "complete" | "error", message?: string) => void;
 
@@ -16,17 +17,17 @@ export class Orchestrator {
       
       const metadataResult = await this.archestra.callTool("get_repo_metadata", { repoUrl });
       // @ts-ignore
-      const metadata = JSON.parse(metadataResult.content[0].text);
+      const metadata = safeJsonParse(metadataResult.content[0].text);
       
       onProgress("analysis", "running", "Analyzing structure...");
       const analysisResult = await this.archestra.callTool("analyze_repository", { repoUrl });
       // @ts-ignore
-      const analysis = JSON.parse(analysisResult.content[0].text);
+      const analysis = safeJsonParse(analysisResult.content[0].text);
 
       onProgress("analysis", "running", "Identifying key files...");
       const importantFilesResult = await this.archestra.callTool("identify_important_files", { fileTree: analysis.tree });
       // @ts-ignore
-      const filePaths = JSON.parse(importantFilesResult.content[0].text);
+      const filePaths = safeJsonParse(importantFilesResult.content[0].text);
 
       onProgress("analysis", "complete", "Repository analyzed");
 
@@ -34,17 +35,17 @@ export class Orchestrator {
       onProgress("reading", "running", `Reading ${filePaths.length} files...`);
       const filesResult = await this.archestra.callTool("read_files", { repoUrl, filePaths });
       // @ts-ignore
-      const files = JSON.parse(filesResult.content[0].text);
+      const files = safeJsonParse(filesResult.content[0].text);
 
       onProgress("reading", "running", "Extracting code signatures...");
       const signaturesResult = await this.archestra.callTool("extract_signatures", { files });
       // @ts-ignore
-      const signatures = JSON.parse(signaturesResult.content[0].text);
+      const signatures = safeJsonParse(signaturesResult.content[0].text);
 
       onProgress("reading", "running", "Optimizing context...");
       const chunksResult = await this.archestra.callTool("smart_chunk", { files, maxTokens: 15000 });
       // @ts-ignore
-      const chunks = JSON.parse(chunksResult.content[0].text);
+      const chunks = safeJsonParse(chunksResult.content[0].text);
 
       onProgress("reading", "complete", "Code processed");
 
@@ -64,7 +65,7 @@ export class Orchestrator {
       onProgress("quality", "running", "Validating content...");
       const validationResult = await this.archestra.callTool("validate_readme", { readme });
       // @ts-ignore
-      const validation = JSON.parse(validationResult.content[0].text);
+      const validation = safeJsonParse(validationResult.content[0].text);
 
       let finalReadme = readme;
       if (validation.score < 80) {
