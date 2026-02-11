@@ -1,6 +1,9 @@
 #!/usr/bin/env node
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
+import express from "express";
+import cors from "cors";
 import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
@@ -173,5 +176,29 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   throw new Error(`Tool ${name} not found`);
 });
 
-const transport = new StdioServerTransport();
-await server.connect(transport);
+if (process.env.PORT) {
+  const app = express();
+  app.use(cors());
+  app.use(express.json());
+
+  let transport: SSEServerTransport;
+
+  app.get("/sse", async (req, res) => {
+    transport = new SSEServerTransport("/messages", res);
+    await server.connect(transport);
+  });
+
+  app.post("/messages", async (req, res) => {
+    if (transport) {
+      await transport.handlePostMessage(req, res);
+    }
+  });
+
+  const port = process.env.PORT;
+  app.listen(port, () => {
+    console.log(`Doc Generator MCP running on port ${port}`);
+  });
+} else {
+  const transport = new StdioServerTransport();
+  await server.connect(transport);
+}

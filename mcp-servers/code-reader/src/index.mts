@@ -1,6 +1,9 @@
 #!/usr/bin/env node
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
+import express from "express";
+import cors from "cors";
 import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
@@ -118,8 +121,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         
         // Limit to 10KB
         if (text.length > 10000) {
-            return { path, content: text.substring(0, 10000) + "
-...[TRUNCATED]" };
+            return { path, content: text.substring(0, 10000) + "\n...[TRUNCATED]" };
         }
         return { path, content: text };
       } catch (e: any) {
@@ -192,8 +194,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                 const chars = remainingTokens * 4;
                 chunkedFiles.push({
                     path: file.path,
-                    content: file.content.substring(0, chars) + "
-...[TRUNCATED FOR CONTEXT]"
+                    content: file.content.substring(0, chars) + "\n...[TRUNCATED FOR CONTEXT]"
                 });
                 currentTokens += remainingTokens;
             }
@@ -208,5 +209,29 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   throw new Error(`Tool ${name} not found`);
 });
 
-const transport = new StdioServerTransport();
-await server.connect(transport);
+if (process.env.PORT) {
+  const app = express();
+  app.use(cors());
+  app.use(express.json());
+
+  let transport: SSEServerTransport;
+
+  app.get("/sse", async (req, res) => {
+    transport = new SSEServerTransport("/messages", res);
+    await server.connect(transport);
+  });
+
+  app.post("/messages", async (req, res) => {
+    if (transport) {
+      await transport.handlePostMessage(req, res);
+    }
+  });
+
+  const port = process.env.PORT;
+  app.listen(port, () => {
+    console.log(`Code Reader MCP running on port ${port}`);
+  });
+} else {
+  const transport = new StdioServerTransport();
+  await server.connect(transport);
+}

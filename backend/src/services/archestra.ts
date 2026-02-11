@@ -26,7 +26,7 @@ export class ArchestraService {
                 Authorization: `Bearer ${token}`
             }
         }
-      }
+      } as any
     );
 
     this.client = new Client(

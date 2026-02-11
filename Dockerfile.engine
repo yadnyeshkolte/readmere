@@ -1,0 +1,47 @@
+FROM node:20-slim AS builder
+WORKDIR /app
+
+# Copy all package files
+COPY backend/package*.json ./backend/
+COPY mcp-servers/repo-analyzer/package*.json ./mcp-servers/repo-analyzer/
+COPY mcp-servers/code-reader/package*.json ./mcp-servers/code-reader/
+COPY mcp-servers/doc-generator/package*.json ./mcp-servers/doc-generator/
+
+# Install all dependencies
+RUN cd backend && npm install
+RUN cd mcp-servers/repo-analyzer && npm install
+RUN cd mcp-servers/code-reader && npm install
+RUN cd mcp-servers/doc-generator && npm install
+
+# Copy source code
+COPY . .
+
+# Build all projects
+RUN cd backend && npm run build
+RUN cd mcp-servers/repo-analyzer && npm run build
+RUN cd mcp-servers/code-reader && npm run build
+RUN cd mcp-servers/doc-generator && npm run build
+
+# Final Stage
+FROM node:20-slim
+WORKDIR /app
+
+# Install PM2 and HTTP-Proxy
+RUN npm install -g pm2
+
+# Copy builds
+COPY --from=builder /app /app
+
+# Hugging Face default port
+ENV PORT=7860
+EXPOSE 7860
+
+# Create start script with DIFFERENT PORTS for each agent
+RUN echo '#!/bin/bash' > start.sh && \
+    echo 'PORT=3002 pm2 start /app/mcp-servers/repo-analyzer/dist/index.mjs --name "repo-analyzer"' >> start.sh && \
+    echo 'PORT=3003 pm2 start /app/mcp-servers/code-reader/dist/index.mjs --name "code-reader"' >> start.sh && \
+    echo 'PORT=3004 pm2 start /app/mcp-servers/doc-generator/dist/index.mjs --name "doc-generator"' >> start.sh && \
+    echo 'PORT=7860 pm2-runtime start /app/backend/dist/index.js --name "backend"' >> start.sh && \
+    chmod +x start.sh
+
+CMD ["./start.sh"]

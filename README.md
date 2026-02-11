@@ -13,6 +13,29 @@ This project was built for the **2 Fast 2 MCP** hackathon to demonstrate the pow
 
 ---
 
+## 🏁 Hackathon Nitro Deployment (100% Free)
+
+To deploy this project publically for the hackathon without paying for a VPS or keeping your laptop open:
+
+### 1. The Engine (Backend + Agents) 🧟‍♂️
+Deploy the "All-in-One Engine" to **Hugging Face Spaces**:
+- Create a new **Docker Space** on Hugging Face.
+- Upload the `Dockerfile.engine` and the `backend` & `mcp-servers` folders.
+- Add your `GROQ_API_KEY` and `GITHUB_TOKEN` to the Space Secrets.
+- **Why?** HF Spaces gives you 16GB RAM for free, which easily handles multiple agents.
+
+### 2. The Interface (Frontend) 🎨
+Deploy to **Vercel**:
+- Connect your GitHub repo to Vercel.
+- Set the `Root Directory` to `frontend`.
+- Add Environment Variable: `NEXT_PUBLIC_API_URL` = `https://your-hf-space-url.hf.space`.
+
+### 3. The Orchestrator (Archestra) 🏎️
+- Use **Archestra Cloud** (or host the Archestra image on a second HF Space).
+- Connect the agents via the HF Space URL (e.g., `https://your-space.hf.space/sse`).
+
+---
+
 ## ✨ Features
 
 - **🔍 Deep Repository Analysis**: Understands project structure, languages, and key entry points.
