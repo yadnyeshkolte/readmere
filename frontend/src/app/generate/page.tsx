@@ -63,8 +63,7 @@ function GenerateContent() {
           if (done) break;
           
           const chunk = decoder.decode(value);
-          const lines = chunk.split('
-');
+          const lines = chunk.split('\n');
           
           for (let i = 0; i < lines.length; i++) {
             if (lines[i].startsWith('event: ')) {
