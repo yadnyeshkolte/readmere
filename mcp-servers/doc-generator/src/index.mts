@@ -98,29 +98,49 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   if (name === "generate_readme") {
     const { metadata, analysis, codeSummaries } = args as any;
 
-    const systemPrompt = `You are an expert technical writer. Your goal is to generate a comprehensive, professional, and beautiful README.md for a software project. 
-    Use the provided repository metadata, file structure analysis, and code summaries to understand the project.
+    // CRITICAL: Truncate analysis to remove the full file tree if it's too large
+    // to prevent context window overflow.
+    const cleanAnalysis = {
+        ...analysis,
+        tree: analysis.tree?.length > 100 ? undefined : analysis.tree,
+        fileCount: analysis.tree?.length || analysis.fileCount
+    };
+
+    const systemPrompt = `You are an expert technical writer specializing in open-source documentation. 
+    Your goal is to generate a high-quality, professional, and visually appealing README.md.
     
-    The README must include:
-    1. Title & Badges (License, Language, etc.)
-    2. Description (What does it do? Why use it?)
-    3. Features (Key capabilities)
-    4. Tech Stack (Languages, Frameworks, Tools)
-    5. Prerequisites & Installation
-    6. Usage / Quick Start
-    7. Project Structure (Tree view of key files)
-    8. Configuration (Env vars, flags)
-    9. Contributing
-    10. License
-    
-    Format nicely with Markdown. Use emojis. be concise but informative.`;
+    Strictly follow this structure and formatting:
+    1.  **Header**: Project Name as H1, followed by a catchy one-line description.
+    2.  **Badges**: Include relevant shields.io badges (License, Repo Size, Stars, Language, etc.).
+    3.  **Visuals**: If appropriate, suggest a placeholder for a logo or banner.
+    4.  **Table of Contents**: A linked list for easy navigation.
+    5.  **Description**: A deep dive into "What" and "Why".
+    6.  **Key Features**: Use a clean list with emojis.
+    7.  **Architecture**: Briefly explain the project structure based on the analysis.
+    8.  **Tech Stack**: Use a table or a clear list with icons/tags.
+    9.  **Getting Started**: 
+        - Prerequisites
+        - Step-by-step Installation (with code blocks)
+        - Basic Usage (with clear examples)
+    10. **Configuration**: Table of environment variables or config options.
+    11. **Contributing**: Professional standard guide.
+    12. **License**: Clear mention.
+
+    Formatting Rules:
+    - Use H1 (#) only for the title. Use H2 (##) and H3 (###) for sections.
+    - Use professional, active voice.
+    - Ensure all code blocks have the correct language identifier.
+    - Use tables for structured data like configuration or tech stack.
+    - DO NOT include conversational filler like "Here is your README".
+    - Return ONLY the raw Markdown content.`;
 
     const userPrompt = `
-    Repo Metadata: ${JSON.stringify(metadata)}
-    Repo Analysis: ${JSON.stringify(analysis)}
-    Code Content/Summaries: ${JSON.stringify(codeSummaries)}
+    Context for generation:
+    - Metadata: ${JSON.stringify(metadata)}
+    - Project Analysis: ${JSON.stringify(analysis)}
+    - Key Code Context: ${JSON.stringify(codeSummaries)}
     
-    Generate the README.md now. Return ONLY the markdown content.`;
+    Generate the full README.md now. Use all information to be as specific as possible about this project's unique features and setup.`;
 
     const readme = await callGroq([
       { role: "system", content: systemPrompt },
