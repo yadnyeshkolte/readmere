@@ -103,6 +103,30 @@ To use standard ports (80/443) and proper domains:
     - `api.yourdomain.com` -> `localhost:8080` (Backend)
     - `admin.yourdomain.com` -> `localhost:3000` (Archestra)
 
+## 🌐 Alternative: Deploy to Hugging Face Spaces
+
+If you don't want to manage a VPS, you can deploy the engine and the platform to Hugging Face Spaces for free (or low cost).
+
+### 1. The Archestra Platform
+1.  Go to [huggingface.co/new-space](https://huggingface.co/new-space).
+2.  Name: `archestra-admin`.
+3.  SDK: **Docker**.
+4.  Upload the contents of the **`archestra-platform/`** folder.
+5.  Set `ARCHESTRA_CHAT_GROQ_API_KEY` in Space Secrets.
+
+### 2. The Engine (Backend + Agents)
+1.  Create another Docker Space.
+2.  Name: `readmere-engine`.
+3.  Upload the contents of the **`readmere-huggingface-engine/`** folder.
+4.  Add Secrets: `GROQ_API_KEY`, `GITHUB_TOKEN`.
+5.  Link this engine to your Archestra space using the public URL provided by HF.
+
+### 3. The Frontend
+The frontend can be deployed to **Vercel** or **Netlify**.
+- Set `NEXT_PUBLIC_API_URL` to the public URL of your `readmere-engine` space.
+
+---
+
 ## ⚠️ Important Note on Code Changes
 
 We have modified the MCP servers (`mcp-servers/*/src/index.ts`) to support **SSE (Server-Sent Events)** over HTTP. This allows them to run as proper microservices in the Docker network.
