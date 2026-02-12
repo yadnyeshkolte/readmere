@@ -14,27 +14,47 @@ const GROQ_API_KEY = process.env.GROQ_API_KEY;
 async function callGroq(messages: any[], maxTokens: number = 4000) {
   if (!GROQ_API_KEY) throw new Error("GROQ_API_KEY not set");
   
-  const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Authorization": `Bearer ${GROQ_API_KEY}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: "llama-3.3-70b-versatile",
-      messages: messages,
-      temperature: 0.5,
-      max_completion_tokens: maxTokens,
-    }),
-  });
+  let lastError;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${GROQ_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "llama-3.3-70b-versatile",
+          messages: messages,
+          temperature: 0.5,
+          max_completion_tokens: maxTokens,
+        }),
+      });
 
-  if (!response.ok) {
-    const err = await response.text();
-    throw new Error(`Groq API Error: ${err}`);
+      if (response.status === 429) {
+        const retryAfter = parseInt(response.headers.get("retry-after") || "2");
+        console.warn(`Rate limited. Retrying in ${retryAfter}s...`);
+        await new Promise(resolve => setTimeout(resolve, retryAfter * 1000));
+        continue;
+      }
+
+      if (!response.ok) {
+        const err = await response.text();
+        throw new Error(`Groq API Error: ${err}`);
+      }
+
+      const data = await response.json();
+      return data.choices[0].message.content;
+    } catch (e: any) {
+      lastError = e;
+      if (e.message.includes("Rate limit")) {
+        await new Promise(resolve => setTimeout(resolve, 2000 * (attempt + 1)));
+        continue;
+      }
+      throw e;
+    }
   }
-
-  const data = await response.json();
-  return data.choices[0].message.content;
+  throw lastError;
 }
 
 const server = new Server(
