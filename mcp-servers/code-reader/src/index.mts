@@ -212,12 +212,15 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 if (process.env.PORT) {
   const app = express();
   app.use(cors());
-  app.use(express.json());
+  // Removed express.json() as it interferes with MCP stream reading
 
   let transport: SSEServerTransport;
 
   app.get("/sse", async (req, res) => {
-    transport = new SSEServerTransport("/mcp/reader/messages", res);
+    if (transport) {
+      try { await server.close(); } catch(e) {}
+    }
+    transport = new SSEServerTransport("messages", res);
     await server.connect(transport);
   });
 

@@ -32,7 +32,7 @@ async function callGroq(messages: any[], maxTokens: number = 4000) {
       });
 
       if (response.status === 429) {
-        const retryAfter = parseInt(response.headers.get("retry-after") || "2");
+        const retryAfter = 2; // Default to 2s
         console.warn(`Rate limited. Retrying in ${retryAfter}s...`);
         await new Promise(resolve => setTimeout(resolve, retryAfter * 1000));
         continue;
@@ -118,11 +118,11 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   if (name === "generate_readme") {
     const { metadata, analysis, codeSummaries } = args as any;
 
-    // CRITICAL: Truncate analysis to remove the full file tree if it's too large
-    // to prevent context window overflow.
+    // CRITICAL: Truncate analysis to remove the full file tree (thousands of lines)
+    // and only keep the summary statistics.
     const cleanAnalysis = {
         ...analysis,
-        tree: analysis.tree?.length > 100 ? undefined : analysis.tree,
+        tree: undefined, // Remove the massive array
         fileCount: analysis.tree?.length || analysis.fileCount
     };
 
@@ -132,40 +132,32 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     Strictly follow this structure and formatting:
     1.  **Header**: Project Name as H1, followed by a catchy one-line description.
     2.  **Badges**: Include relevant shields.io badges (License, Repo Size, Stars, Language, etc.).
-    3.  **Visuals**: If appropriate, suggest a placeholder for a logo or banner.
-    4.  **Table of Contents**: A linked list for easy navigation.
-    5.  **Description**: A deep dive into "What" and "Why".
-    6.  **Key Features**: Use a clean list with emojis.
-    7.  **Architecture**: Briefly explain the project structure based on the analysis.
-    8.  **Tech Stack**: Use a table or a clear list with icons/tags.
-    9.  **Getting Started**: 
-        - Prerequisites
-        - Step-by-step Installation (with code blocks)
-        - Basic Usage (with clear examples)
-    10. **Configuration**: Table of environment variables or config options.
-    11. **Contributing**: Professional standard guide.
-    12. **License**: Clear mention.
+    3.  **Table of Contents**: A linked list for easy navigation.
+    4.  **Description**: A deep dive into "What" and "Why".
+    5.  **Key Features**: Use a clean list with emojis.
+    6.  **Architecture**: Briefly explain the project structure based on the analysis.
+    7.  **Tech Stack**: Use a table or a clear list with icons/tags.
+    8.  **Getting Started**: Prerequisites, Installation, and Basic Usage.
+    9.  **Configuration**: Table of environment variables or config options.
+    10. **Contributing** & **License**.
 
     Formatting Rules:
-    - Use H1 (#) only for the title. Use H2 (##) and H3 (###) for sections.
-    - Use professional, active voice.
+    - Use H1 (#) only for the title.
     - Ensure all code blocks have the correct language identifier.
-    - Use tables for structured data like configuration or tech stack.
-    - DO NOT include conversational filler like "Here is your README".
+    - DO NOT include conversational filler.
     - Return ONLY the raw Markdown content.`;
 
     const userPrompt = `
-    Context for generation:
-    - Metadata: ${JSON.stringify(metadata)}
-    - Project Analysis: ${JSON.stringify(analysis)}
-    - Key Code Context: ${JSON.stringify(codeSummaries)}
+    Repo Metadata: ${JSON.stringify(metadata).substring(0, 1000)}
+    Repo Analysis Summary: ${JSON.stringify(cleanAnalysis).substring(0, 2000)}
+    Key Code Chunks: ${JSON.stringify(codeSummaries).substring(0, 10000)}
     
-    Generate the full README.md now. Use all information to be as specific as possible about this project's unique features and setup.`;
+    Generate the full README.md now. Return ONLY markdown.`;
 
     const readme = await callGroq([
       { role: "system", content: systemPrompt },
       { role: "user", content: userPrompt }
-    ], 6000);
+    ], 2500);
 
     return {
       content: [{ type: "text", text: readme }],
@@ -206,7 +198,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     const improved = await callGroq([
       { role: "system", content: "You are an expert technical writer. Improve the README." },
       { role: "user", content: prompt }
-    ], 6000);
+    ], 3000);
 
     return {
       content: [{ type: "text", text: improved }],
@@ -219,12 +211,15 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 if (process.env.PORT) {
   const app = express();
   app.use(cors());
-  app.use(express.json());
+  // Removed express.json() as it interferes with MCP stream reading
 
   let transport: SSEServerTransport;
 
   app.get("/sse", async (req, res) => {
-    transport = new SSEServerTransport("/mcp/generator/messages", res);
+    if (transport) {
+      try { await server.close(); } catch(e) {}
+    }
+    transport = new SSEServerTransport("messages", res);
     await server.connect(transport);
   });
 

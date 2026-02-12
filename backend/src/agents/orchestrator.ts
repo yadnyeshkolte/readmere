@@ -43,7 +43,7 @@ export class Orchestrator {
       const signatures = safeJsonParse(signaturesResult.content[0].text);
 
       onProgress("reading", "running", "Optimizing context...");
-      const chunksResult = await this.archestra.callTool("smart_chunk", { files, maxTokens: 15000 });
+      const chunksResult = await this.archestra.callTool("smart_chunk", { files, maxTokens: 3000 });
       // @ts-ignore
       const chunks = safeJsonParse(chunksResult.content[0].text);
 
