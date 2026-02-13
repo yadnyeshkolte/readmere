@@ -4,136 +4,120 @@ import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/
 import EventSource from "eventsource";
 
 export class ArchestraService {
-  private client: Client | null = null;
-  private isConnected: boolean = false;
-  private useLocalFallback: boolean = false;
-  private archestraUrl: string | undefined;
-  private profileId: string | undefined;
-  private token: string | undefined;
+  private localClients: Map<number, Client> = new Map();
+  private connectionPromises: Map<number, Promise<Client>> = new Map();
 
   constructor() {
-    this.profileId = process.env.ARCHESTRA_PROFILE_ID;
-    this.archestraUrl = process.env.ARCHESTRA_URL;
-    this.token = process.env.ARCHESTRA_TOKEN;
-
     // Polyfill EventSource for Node.js (needed for SSE fallback)
     // @ts-ignore
     global.EventSource = EventSource;
+  }
 
-    if (this.profileId && this.archestraUrl) {
-      console.log("Configuring Archestra Platform connection...");
-      this.client = new Client(
-        { name: "readmere-backend", version: "1.0.0" },
-        { capabilities: {} }
-      );
-    } else {
-      console.warn("ARCHESTRA_PROFILE_ID or URL not found. Using direct local agent connection.");
-      this.useLocalFallback = true;
+  /**
+   * Get or create a persistent connection to a local MCP server.
+   * Reuses existing connections to avoid re-initializing per tool call.
+   */
+  private async getLocalClient(port: number): Promise<Client> {
+    // Return existing connected client
+    const existing = this.localClients.get(port);
+    if (existing) return existing;
+
+    // If a connection is already in progress, wait for it
+    const pending = this.connectionPromises.get(port);
+    if (pending) return pending;
+
+    // Create new connection
+    const connectPromise = this.connectToLocalServer(port);
+    this.connectionPromises.set(port, connectPromise);
+
+    try {
+      const client = await connectPromise;
+      this.localClients.set(port, client);
+      return client;
+    } finally {
+      this.connectionPromises.delete(port);
     }
   }
 
-  async connect() {
-    if (this.useLocalFallback || this.isConnected) return;
-    if (!this.client) return;
-
-    const mcpUrl = new URL(`${this.archestraUrl}/v1/mcp/${this.profileId}`);
-
-    // Try Streamable HTTP first (modern protocol), fall back to SSE
-    try {
-      console.log("Attempting Streamable HTTP connection to Archestra...");
-      const transport = new StreamableHTTPClientTransport(mcpUrl, {
-        requestInit: {
-          headers: {
-            ...(this.token ? { Authorization: `Bearer ${this.token}` } : {}),
-          },
-        },
-      });
-      await this.client.connect(transport);
-      this.isConnected = true;
-      console.log("Connected to Archestra MCP Gateway (Streamable HTTP)");
-      return;
-    } catch (e) {
-      console.warn("Streamable HTTP failed, trying SSE transport...", (e as Error).message);
-    }
-
-    // Fallback to SSE transport
-    try {
-      // Re-create client since previous connect may have changed state
-      this.client = new Client(
-        { name: "readmere-backend", version: "1.0.0" },
-        { capabilities: {} }
-      );
-      const sseTransport = new SSEClientTransport(mcpUrl, {
-        eventSourceInit: {
-          headers: {
-            ...(this.token ? { Authorization: `Bearer ${this.token}` } : {}),
-          },
-        },
-      } as any);
-      await this.client.connect(sseTransport);
-      this.isConnected = true;
-      console.log("Connected to Archestra MCP Gateway (SSE)");
-    } catch (e) {
-      console.error("Failed to connect to Archestra, falling back to local agents.");
-      this.useLocalFallback = true;
-    }
-  }
-
-  private async callLocalAgent(port: number, toolName: string, args: any) {
-    const localClient = new Client(
-      { name: "local-dispatcher", version: "1.0.0" },
+  private async connectToLocalServer(port: number): Promise<Client> {
+    const client = new Client(
+      { name: "readmere-backend", version: "1.0.0" },
       { capabilities: {} }
     );
 
-    // Try Streamable HTTP first (new protocol), fall back to SSE
+    // Try Streamable HTTP first
     try {
+      console.log(`Connecting to MCP server on port ${port} (Streamable HTTP)...`);
       const transport = new StreamableHTTPClientTransport(
         new URL(`http://localhost:${port}/mcp`)
       );
-      await localClient.connect(transport);
-    } catch {
-      // Fallback to SSE
+      await client.connect(transport);
+      console.log(`Connected to MCP server on port ${port} (Streamable HTTP)`);
+      return client;
+    } catch (e) {
+      console.warn(`Streamable HTTP failed for port ${port}: ${(e as Error).message}`);
+    }
+
+    // Fallback to SSE — need a fresh client since connect may change state
+    const sseClient = new Client(
+      { name: "readmere-backend", version: "1.0.0" },
+      { capabilities: {} }
+    );
+
+    try {
+      console.log(`Connecting to MCP server on port ${port} (SSE)...`);
       const sseTransport = new SSEClientTransport(
         new URL(`http://localhost:${port}/sse`)
       );
-      await localClient.connect(sseTransport);
+      await sseClient.connect(sseTransport);
+      console.log(`Connected to MCP server on port ${port} (SSE)`);
+      return sseClient;
+    } catch (e) {
+      console.error(`All transports failed for port ${port}: ${(e as Error).message}`);
+      throw new Error(`Cannot connect to MCP server on port ${port}`);
     }
-
-    const result = await localClient.callTool({
-      name: toolName,
-      arguments: args,
-    });
-
-    await localClient.close();
-    return result;
   }
 
   async callTool(name: string, args: any) {
-    await this.connect();
+    const portMap: Record<string, number> = {
+      'analyze_repository': 3002,
+      'get_repo_metadata': 3002,
+      'identify_important_files': 3002,
+      'read_files': 3003,
+      'extract_signatures': 3003,
+      'smart_chunk': 3003,
+      'generate_readme': 3004,
+      'validate_readme': 3004,
+      'enhance_readme': 3004
+    };
 
-    if (this.useLocalFallback) {
-      const portMap: Record<string, number> = {
-        'analyze_repository': 3002,
-        'get_repo_metadata': 3002,
-        'identify_important_files': 3002,
-        'read_files': 3003,
-        'extract_signatures': 3003,
-        'smart_chunk': 3003,
-        'generate_readme': 3004,
-        'validate_readme': 3004,
-        'enhance_readme': 3004
-      };
+    const port = portMap[name];
+    if (!port) throw new Error(`Unknown tool: ${name}`);
 
-      const port = portMap[name];
-      if (!port) throw new Error(`Tool ${name} not supported in local mode`);
+    console.log(`Calling tool: ${name} on port ${port}`);
 
-      console.log(`Direct Call: ${name} on port ${port}`);
-      return await this.callLocalAgent(port, name, args);
+    try {
+      const client = await this.getLocalClient(port);
+      const result = await client.callTool({ name, arguments: args });
+      return result;
+    } catch (error) {
+      // Connection may have dropped — clear cache and retry once
+      console.warn(`Tool call failed, retrying with fresh connection: ${(error as Error).message}`);
+      this.localClients.delete(port);
+
+      const client = await this.getLocalClient(port);
+      return await client.callTool({ name, arguments: args });
     }
+  }
 
-    return await this.client!.callTool({
-      name,
-      arguments: args,
-    });
+  async cleanup() {
+    for (const [port, client] of this.localClients) {
+      try {
+        await client.close();
+      } catch (e) {
+        // Ignore cleanup errors
+      }
+    }
+    this.localClients.clear();
   }
 }

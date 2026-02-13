@@ -14,20 +14,27 @@ router.post('/', async (req: Request, res: Response) => {
   const isSSE = req.headers.accept === 'text/event-stream';
 
   if (isSSE) {
-    res.setHeader('Content-Type', 'text/event-stream');
-    res.setHeader('Cache-Control', 'no-cache');
-    res.setHeader('Connection', 'keep-alive');
+    // Send headers and flush immediately to establish the SSE connection
+    res.writeHead(200, {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive',
+      'X-Accel-Buffering': 'no', // Disable buffering for nginx/proxies
+    });
+    // Send an initial heartbeat to confirm stream is open
+    res.write(`event: progress\ndata: ${JSON.stringify({ step: "analysis", status: "running", message: "Initializing agents..." })}\n\n`);
   }
 
   const orchestrator = new Orchestrator();
 
   const sendEvent = (type: string, data: any) => {
     if (isSSE) {
-      res.write(`event: ${type}
-`);
-      res.write(`data: ${JSON.stringify(data)}
-
-`);
+      try {
+        res.write(`event: ${type}\ndata: ${JSON.stringify(data)}\n\n`);
+      } catch (e) {
+        // Connection may have been closed by client
+        console.error("SSE write error:", e);
+      }
     }
   };
 
@@ -43,8 +50,9 @@ router.post('/', async (req: Request, res: Response) => {
       res.json(result);
     }
   } catch (error: any) {
+    console.error("Generate error:", error);
     if (isSSE) {
-      sendEvent('error', { message: error.message });
+      sendEvent('error', { message: error.message || 'Internal server error' });
       res.end();
     } else {
       res.status(500).json({ error: error.message });
