@@ -3,6 +3,19 @@ import { safeJsonParse } from "../utils/json.js";
 
 type ProgressCallback = (step: string, status: "pending" | "running" | "complete" | "error", message?: string) => void;
 
+// Safely extract text from MCP tool result
+function extractToolText(result: any): string {
+  if (!result?.content?.[0]?.text) {
+    throw new Error("Empty response from MCP tool");
+  }
+  const text = result.content[0].text;
+  // Check if the tool returned an error
+  if (result.isError) {
+    throw new Error(`MCP tool error: ${text}`);
+  }
+  return text;
+}
+
 export class Orchestrator {
   private archestra: ArchestraService;
 
@@ -13,72 +26,63 @@ export class Orchestrator {
   async generateReadme(repoUrl: string, onProgress: ProgressCallback) {
     try {
       // Step 1: Analysis
-      onProgress("analysis", "running", "Connecting to repository...");
-      
+      onProgress("analysis", "running", "Fetching repository metadata...");
+
       const metadataResult = await this.archestra.callTool("get_repo_metadata", { repoUrl });
-      // @ts-ignore
-      const metadata = safeJsonParse(metadataResult.content[0].text);
-      
-      onProgress("analysis", "running", "Analyzing structure...");
+      const metadata = safeJsonParse(extractToolText(metadataResult));
+
+      onProgress("analysis", "running", `Analyzing ${metadata.name || 'repository'} structure...`);
       const analysisResult = await this.archestra.callTool("analyze_repository", { repoUrl });
-      // @ts-ignore
-      const analysis = safeJsonParse(analysisResult.content[0].text);
+      const analysis = safeJsonParse(extractToolText(analysisResult));
 
-      onProgress("analysis", "running", "Identifying key files...");
+      onProgress("analysis", "running", `Found ${analysis.fileCount || '?'} files, identifying key ones...`);
       const importantFilesResult = await this.archestra.callTool("identify_important_files", { fileTree: analysis.tree });
-      // @ts-ignore
-      const filePaths = safeJsonParse(importantFilesResult.content[0].text);
+      const filePaths = safeJsonParse(extractToolText(importantFilesResult));
 
-      onProgress("analysis", "complete", "Repository analyzed");
+      onProgress("analysis", "complete", `Analyzed ${analysis.fileCount || '?'} files across ${Object.keys(analysis.languageBreakdown || {}).length} languages`);
 
       // Step 2: Reading Code
-      onProgress("reading", "running", `Reading ${filePaths.length} files...`);
+      onProgress("reading", "running", `Reading ${filePaths.length} important files...`);
       const filesResult = await this.archestra.callTool("read_files", { repoUrl, filePaths });
-      // @ts-ignore
-      const files = safeJsonParse(filesResult.content[0].text);
+      const files = safeJsonParse(extractToolText(filesResult));
 
-      onProgress("reading", "running", "Extracting code signatures...");
+      onProgress("reading", "running", "Extracting function signatures...");
       const signaturesResult = await this.archestra.callTool("extract_signatures", { files });
-      // @ts-ignore
-      const signatures = safeJsonParse(signaturesResult.content[0].text);
+      const signatures = safeJsonParse(extractToolText(signaturesResult));
 
-      onProgress("reading", "running", "Optimizing context...");
+      onProgress("reading", "running", "Optimizing context for LLM...");
       const chunksResult = await this.archestra.callTool("smart_chunk", { files, maxTokens: 3000 });
-      // @ts-ignore
-      const chunks = safeJsonParse(chunksResult.content[0].text);
+      const chunks = safeJsonParse(extractToolText(chunksResult));
 
-      onProgress("reading", "complete", "Code processed");
+      onProgress("reading", "complete", `Processed ${files.length} files, ${signatures.reduce((a: number, s: any) => a + (s.signatures?.length || 0), 0)} signatures extracted`);
 
       // Step 3: Generation
-      onProgress("generation", "running", "Drafting documentation...");
+      onProgress("generation", "running", "Generating README with Llama 3 70B...");
       const readmeResult = await this.archestra.callTool("generate_readme", {
         metadata,
         analysis,
         codeSummaries: chunks
       });
-      // @ts-ignore
-      const readme = readmeResult.content[0].text;
+      const readme = extractToolText(readmeResult);
 
-      onProgress("generation", "complete", "Draft generated");
+      onProgress("generation", "complete", "README draft generated");
 
       // Step 4: Quality Check
-      onProgress("quality", "running", "Validating content...");
+      onProgress("quality", "running", "Running quality validation...");
       const validationResult = await this.archestra.callTool("validate_readme", { readme });
-      // @ts-ignore
-      const validation = safeJsonParse(validationResult.content[0].text);
+      const validation = safeJsonParse(extractToolText(validationResult));
 
       let finalReadme = readme;
       if (validation.score < 80) {
-        onProgress("quality", "running", "Enhancing content...");
-        const enhancedResult = await this.archestra.callTool("enhance_readme", { 
-            readme, 
-            suggestions: validation.suggestions.join(", ") 
+        onProgress("quality", "running", `Score ${validation.score}/100 — enhancing...`);
+        const enhancedResult = await this.archestra.callTool("enhance_readme", {
+          readme,
+          suggestions: validation.suggestions.join(", ")
         });
-        // @ts-ignore
-        finalReadme = enhancedResult.content[0].text;
+        finalReadme = extractToolText(enhancedResult);
       }
 
-      onProgress("quality", "complete", `Quality Score: ${validation.score}`);
+      onProgress("quality", "complete", `Quality Score: ${validation.score}/100`);
 
       return {
         readme: finalReadme,

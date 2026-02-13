@@ -1,178 +1,188 @@
-# README Resurrector 🧟‍♂️
+# 🧟‍♂️ README Resurrector
 
-> **Bring dead documentation back to life.**
-> A multi-agent system that automatically analyzes codebases and generates comprehensive, beautiful READMEs using the Model Context Protocol (MCP) and Archestra.
+> **Bring dead documentation back to life.** Paste a GitHub URL — three AI agents analyze your repo, read the code, and generate professional README files in seconds.
 
-![License](https://img.shields.io/badge/license-MIT-blue.svg)
-![Powered By](https://img.shields.io/badge/powered%20by-Archestra-cyan)
-![Platform](https://img.shields.io/badge/platform-Archestra-emerald)
-
----
-
-## 📖 Overview
-
-README Resurrector is a production-ready demonstration of how to orchestrate multiple specialized AI agents using **Archestra** and **MCP**. Instead of a single LLM trying to guess what your project does, we use three distinct agents that work in a pipeline to analyze, read, and write documentation.
-
-### Why this exists?
-Most AI-generated READMEs are shallow because the LLM lacks context. Our pipeline solves this by:
-1.  **Exploring** the entire file tree first.
-2.  **Selecting** only the most relevant files.
-3.  **Chunking** code intelligently to maximize context window usage.
-4.  **Self-Correcting** using a final quality assurance pass.
+[![Built with Archestra](https://img.shields.io/badge/Built%20with-Archestra-00d4aa?style=for-the-badge&logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJ3aGl0ZSI+PGNpcmNsZSBjeD0iMTIiIGN5PSIxMiIgcj0iMTAiLz48L3N2Zz4=)](https://archestra.ai)
+[![Powered by Groq](https://img.shields.io/badge/Powered%20by-Groq-orange?style=for-the-badge)](https://groq.com)
+[![MCP Protocol](https://img.shields.io/badge/Protocol-MCP-blue?style=for-the-badge)](https://modelcontextprotocol.io)
+[![2 Fast 2 MCP](https://img.shields.io/badge/Hackathon-2%20Fast%202%20MCP-red?style=for-the-badge)](https://devpost.com)
 
 ---
 
-## 📦 Deployment Units
+## 🏎️ What is README Resurrector?
 
-The repository includes specialized folders pre-configured for **Hugging Face Spaces** (Docker SDK):
+README Resurrector is a **multi-agent MCP system** that automatically generates comprehensive, professional-grade README documentation for any GitHub repository. Instead of one monolithic AI, it uses three specialized AI agents orchestrated through the **Archestra MCP Platform**:
 
-- **`archestra-platform/`**: A standalone package for deploying the Archestra Admin Panel and MCP Gateway.
-  - **Goal**: Provides the "Control Plane" for your agents.
-  - **Port**: Exposes `7860` (standard for HF Spaces).
-- **`readmere-huggingface-engine/`**: A bundled package containing the Backend Orchestrator and all 3 MCP Servers (Repo Analyzer, Code Reader, Doc Generator).
-  - **Goal**: Provides the "Execution Plane".
-  - **Internal Orchestration**: Uses PM2 to run multiple processes within a single container.
-  - **Port**: Exposes `7860`.
-
-### 🚀 Deploying to Hugging Face
-
-1.  Create two **Docker Spaces** on Hugging Face.
-2.  **Space 1 (The Brain)**: Upload the contents of `archestra-platform/`.
-3.  **Space 2 (The Engine)**: Upload the contents of `readmere-huggingface-engine/`.
-4.  Configure the Secrets (`GROQ_API_KEY`, `GITHUB_TOKEN`, etc.) in Space 2.
-5.  Link Space 2's backend to Space 1's gateway using the provided SSE URLs.
-
----
+```
+GitHub URL → [Repo Analyzer] → [Code Reader] → [Doc Generator] → README.md ✨
+                  MCP #1            MCP #2           MCP #3
+                    ↑                  ↑                ↑
+                    └──────── Archestra Platform ────────┘
+```
 
 ## 🏗️ Architecture
 
-The system is built on a modular architecture where the "brains" are separated from the "orchestration".
-
 ```mermaid
-graph TD
-    User([User]) --> Frontend[Next.js Frontend]
-    Frontend --> Backend[Express.js Backend]
-    Backend --> Archestra[Archestra Gateway]
+graph TB
+    User[🧟‍♂️ User] --> Frontend[Next.js Frontend]
+    Frontend --> Backend[Express Backend]
+    Backend --> Archestra[Archestra Platform]
     
-    subgraph "MCP Cluster (Orchestrated by Archestra)"
-        Archestra --> A1[Repo Analyzer]
-        Archestra --> A2[Code Reader]
-        Archestra --> A3[Doc Generator]
+    subgraph "MCP Servers"
+        RA[🔍 Repo Analyzer<br/>Port 3002]
+        CR[📖 Code Reader<br/>Port 3003]
+        DG[✍️ Doc Generator<br/>Port 3004]
     end
-
-    A1 -- "File Tree & Structure" --> Backend
-    A2 -- "Code Chunks & Signatures" --> Backend
-    A3 -- "Draft & Final README" --> Backend
+    
+    Archestra --> RA
+    Archestra --> CR
+    Archestra --> DG
+    
+    DG --> Groq[Llama 3 70B<br/>via Groq]
+    
+    style Archestra fill:#10b981,color:#000
+    style Groq fill:#f97316,color:#000
 ```
 
-### 1. The Agents (MCP Servers)
-Each agent is a standalone MCP server located in `mcp-servers/`:
+### The Three Agents
 
--   **🔍 Repo Analyzer**: Uses heuristics to find entry points, main logic, and dependency files (e.g., `package.json`, `main.py`).
--   **📖 Code Reader**: Specialized in "Smart Chunking". It reads selected files and extracts function signatures and key logic blocks, ensuring we don't hit LLM token limits while keeping the most important code.
--   **✍️ Doc Generator**: The creative agent. It takes all gathered context and uses **Llama 3 70B** to generate the final Markdown. It also includes a `validate_readme` tool to self-score its work.
+| Agent | MCP Server | Purpose | Key Tools |
+|-------|-----------|---------|-----------|
+| 🔍 **Repo Analyzer** | `repo-analyzer` | Crawls GitHub repos via API, maps file trees, identifies tech stack | `analyze_repository`, `get_repo_metadata`, `identify_important_files` |
+| 📖 **Code Reader** | `code-reader` | Reads files, extracts function signatures, intelligently chunks code | `read_files`, `extract_signatures`, `smart_chunk` |
+| ✍️ **Doc Generator** | `doc-generator` | Generates, validates, and enhances README using Llama 3 70B | `generate_readme`, `validate_readme`, `enhance_readme` |
 
-### 2. The Orchestrator
-The `backend` acts as the project-specific orchestrator. It manages the state machine of the generation process and communicates with the agents through the **Archestra Gateway**.
+## ⚡ Tech Stack
 
----
+- **Frontend**: Next.js 14, TypeScript, TailwindCSS
+- **Backend**: Express.js, TypeScript, SSE streaming
+- **AI Model**: Llama 3 70B via [Groq](https://groq.com) (blazing fast inference)
+- **Protocol**: [Model Context Protocol (MCP)](https://modelcontextprotocol.io)
+- **Orchestration**: [Archestra Platform](https://archestra.ai)
+- **Transport**: Streamable HTTP + SSE (dual-transport support)
+- **Deployment**: Hugging Face Spaces (Docker) + Vercel
 
-## 🚀 Getting Started (Do It Yourself)
+## 🚀 Quick Start
 
-Follow these steps to get your own instance of README Resurrector running.
+### Prerequisites
+- Node.js 20+
+- GitHub Personal Access Token
+- Groq API Key
 
-### 1. Prerequisites
-- **Node.js 18+** & **Docker**
-- **Groq API Key**: Get it at [console.groq.com](https://console.groq.com).
-- **GitHub Token**: A classic Personal Access Token (PAT) with `repo` scope.
-- **Archestra Platform**: You can use the local Docker version or Archestra Cloud.
+### Local Development
 
-### 2. Environment Setup
-Create a `.env` file in the root directory:
-
-```env
-GROQ_API_KEY=your_groq_key
-GITHUB_TOKEN=your_github_token
-ARCHESTRA_URL=http://localhost:3000  # Or your Cloud URL
-ARCHESTRA_PROFILE_ID=your_profile_id
-```
-
-### 3. Deploying the Agents
-You can run agents locally or on a cloud platform like Hugging Face Spaces.
-
-**Local (Docker Compose):**
 ```bash
-docker compose up -d
-```
-This will start:
--   The 3 MCP Servers.
--   The Express Backend.
--   The Next.js Frontend.
+# Clone
+git clone https://github.com/yadnyeshkolte/readmere.git
+cd readmere
 
-### 4. Configuring Archestra (The "Magic" Step)
-To make the agents talk to each other, you must register them in Archestra:
+# Install dependencies (all services)
+cd mcp-servers/repo-analyzer && npm install && cd ../..
+cd mcp-servers/code-reader && npm install && cd ../..
+cd mcp-servers/doc-generator && npm install && cd ../..
+cd backend && npm install && cd ..
+cd frontend && npm install && cd ..
 
-1.  Open your **Archestra Dashboard** at `http://localhost:3000`.
-2.  **Register Servers**: Add the 3 MCP servers using their URLs (if running via Docker, use the service names):
-    - `Repo Analyzer`: `http://repo-analyzer:3002/sse` (or `http://localhost:3002/sse` if outside Docker)
-    - `Code Reader`: `http://code-reader:3003/sse` (or `http://localhost:3003/sse`)
-    - `Doc Generator`: `http://doc-generator:3004/sse` (or `http://localhost:3004/sse`)
-3.  **Create a Profile**: Create a new Profile named "README-Resurrector".
-4.  **Add Tools**: Assign all tools from the 3 registered servers to this profile.
-5.  **Copy Profile ID**: Paste this ID into your backend's `.env` file as `ARCHESTRA_PROFILE_ID`.
+# Set environment variables
+cp .env.example .env
+# Edit .env with your GROQ_API_KEY and GITHUB_TOKEN
 
----
+# Start MCP servers
+PORT=3002 npx tsx mcp-servers/repo-analyzer/src/index.mts &
+PORT=3003 npx tsx mcp-servers/code-reader/src/index.mts &
+PORT=3004 npx tsx mcp-servers/doc-generator/src/index.mts &
 
-### 🛡️ Single-Port Access (Hugging Face Special)
-If you are deploying to Hugging Face using the `readmere-huggingface-engine`, the backend automatically proxies all agents. You only need to expose one URL:
+# Start backend
+cd backend && npm run dev &
 
-- **Gateway URL**: `https://your-space.hf.space`
-- **Repo Analyzer**: `https://your-space.hf.space/mcp/analyzer/sse`
-- **Code Reader**: `https://your-space.hf.space/mcp/reader/sse`
-- **Doc Generator**: `https://your-space.hf.space/mcp/generator/sse`
-
-This is perfect for HF Spaces which only allows one public port (7860).
-
----
-
-## 🛠️ Port Reference
-
-| Service | Host Port | Internal Port | Description |
-| :--- | :--- | :--- | :--- |
-| **Archestra Admin** | 3000 | 3000 | Dashboard for managing agents |
-| **Archestra Gateway**| 9000 | 9000 | MCP Proxy Gateway |
-| **Frontend** | 3001 | 3000 | Next.js Web Interface |
-| **Backend** | 8080 | 8080 | Express.js Orchestrator |
-| **Repo Analyzer** | 3002 | 3002 | MCP Agent (Analysis) |
-| **Code Reader** | 3003 | 3003 | MCP Agent (Reading) |
-| **Doc Generator** | 3004 | 3004 | MCP Agent (Generation) |
-
----
-
-## 🛠️ Implementation Details
-
-### Smart Chunking (Code Reader)
-The `code-reader` doesn't just send raw text. It uses a signature extraction logic:
-```typescript
-// It identifies exports and main functions to prioritize
-const signatures = files.map(f => extractTopLevelSignatures(f.content));
+# Start frontend
+cd frontend && npm run dev
 ```
 
-### Quality Control (Doc Generator)
-The final agent runs a validation loop:
-```typescript
-const score = await agent.call("validate_readme", { content });
-if (score < 80) {
-    return await agent.call("enhance_readme", { content, suggestions });
-}
+### Docker (Recommended)
+
+```bash
+docker-compose up --build
 ```
+
+This starts all services including the Archestra platform.
+
+## 🎯 How It Works
+
+1. **User pastes a GitHub URL** into the frontend
+2. **Backend orchestrator** connects to MCP servers (via Archestra or direct)
+3. **Agent 1 (Repo Analyzer)** crawls the GitHub API:
+   - Fetches repo metadata (stars, language, description)
+   - Maps the complete file tree
+   - Identifies the most important files to read
+4. **Agent 2 (Code Reader)** processes the code:
+   - Reads identified files from GitHub
+   - Extracts function/class signatures
+   - Intelligently chunks code to fit LLM context
+5. **Agent 3 (Doc Generator)** creates documentation:
+   - Sends structured context to Llama 3 70B via Groq
+   - Generates a comprehensive README
+   - Validates quality (scores out of 100)
+   - Auto-enhances if score < 80
+6. **Real-time progress** streamed to frontend via SSE
+
+## 🔌 Archestra Integration
+
+README Resurrector leverages Archestra as its MCP orchestration layer:
+
+- **MCP Server Registry**: All 3 agents registered as MCP servers in Archestra
+- **Dual Transport**: Supports both Streamable HTTP (`/mcp`) and legacy SSE (`/sse`)
+- **Agent Chat UI**: Interact with the README agent via Archestra's ChatGPT-style interface
+- **Observability**: Monitor agent performance and tool calls through Archestra dashboard
+- **Security**: Archestra's built-in guardrails protect against prompt injection
+
+## 📁 Project Structure
+
+```
+readmere/
+├── frontend/                    # Next.js 14 frontend
+│   ├── src/app/                # Pages (landing, generate)
+│   └── src/components/         # UI components
+├── backend/                    # Express.js API server
+│   ├── src/agents/            # Orchestrator logic
+│   └── src/services/          # Archestra service
+├── mcp-servers/
+│   ├── repo-analyzer/         # MCP Server #1
+│   ├── code-reader/           # MCP Server #2
+│   └── doc-generator/         # MCP Server #3
+├── readmere-huggingface-engine/ # HF Space deployment
+├── archestra-platform/         # Archestra HF Space config
+└── docker-compose.yml          # Full stack orchestration
+```
+
+## 🏁 Hackathon: 2 Fast 2 MCP
+
+This project was built for the **[2 Fast 2 MCP Hackathon](https://devpost.com)** organized by Archestra.
+
+### Why README Resurrector?
+
+Every developer knows the pain: you find a promising open-source repo, but the README is outdated, incomplete, or missing entirely. README Resurrector solves this by:
+
+- **Automatically analyzing** any GitHub repository
+- **Understanding the code** through intelligent parsing
+- **Generating professional docs** in seconds, not hours
+- **Validating quality** with an automated scoring system
+
+### Archestra Features Used
+
+- ✅ MCP Server Registration & Management
+- ✅ Multi-agent orchestration
+- ✅ Streamable HTTP transport
+- ✅ Built-in Chat UI for agent interaction
+- ✅ Centralized runtime
+- ✅ Platform observability
 
 ---
 
-## 🏁 Hackathon Submission Note
+<p align="center">
+  <b>🧟‍♂️ Stop writing READMEs from scratch. Let the dead docs rise again.</b>
+</p>
 
-This project was built for the **2 Fast 2 MCP Hackathon**. It leverages Archestra to solve the "Context Fragmentation" problem in AI agents by using the Model Context Protocol to bridge the gap between static code and dynamic LLM reasoning.
-
-## 📄 License
-MIT © 2026 README Resurrector Team
-
+<p align="center">
+  Built with ❤️ for the 2 Fast 2 MCP Hackathon
+</p>
