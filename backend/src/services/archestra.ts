@@ -1,34 +1,27 @@
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";
+import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import EventSource from "eventsource";
 
 export class ArchestraService {
   private client: Client | null = null;
-  private transport: SSEClientTransport | null = null;
   private isConnected: boolean = false;
   private useLocalFallback: boolean = false;
+  private archestraUrl: string | undefined;
+  private profileId: string | undefined;
+  private token: string | undefined;
 
   constructor() {
-    const profileId = process.env.ARCHESTRA_PROFILE_ID;
-    const baseUrl = process.env.ARCHESTRA_URL;
+    this.profileId = process.env.ARCHESTRA_PROFILE_ID;
+    this.archestraUrl = process.env.ARCHESTRA_URL;
+    this.token = process.env.ARCHESTRA_TOKEN;
 
-    // Polyfill EventSource for Node.js
+    // Polyfill EventSource for Node.js (needed for SSE fallback)
     // @ts-ignore
     global.EventSource = EventSource;
 
-    if (profileId && baseUrl) {
+    if (this.profileId && this.archestraUrl) {
       console.log("Configuring Archestra Platform connection...");
-      this.transport = new SSEClientTransport(
-        new URL(`${baseUrl}/v1/mcp/${profileId}`),
-        {
-          eventSourceInit: {
-            headers: {
-              Authorization: `Bearer ${process.env.ARCHESTRA_TOKEN}`
-            }
-          }
-        } as any
-      );
-
       this.client = new Client(
         { name: "readmere-backend", version: "1.0.0" },
         { capabilities: {} }
@@ -41,12 +34,45 @@ export class ArchestraService {
 
   async connect() {
     if (this.useLocalFallback || this.isConnected) return;
-    if (!this.client || !this.transport) return;
+    if (!this.client) return;
 
+    const mcpUrl = new URL(`${this.archestraUrl}/v1/mcp/${this.profileId}`);
+
+    // Try Streamable HTTP first (modern protocol), fall back to SSE
     try {
-      await this.client.connect(this.transport);
+      console.log("Attempting Streamable HTTP connection to Archestra...");
+      const transport = new StreamableHTTPClientTransport(mcpUrl, {
+        requestInit: {
+          headers: {
+            ...(this.token ? { Authorization: `Bearer ${this.token}` } : {}),
+          },
+        },
+      });
+      await this.client.connect(transport);
       this.isConnected = true;
-      console.log("Connected to Archestra MCP Gateway");
+      console.log("Connected to Archestra MCP Gateway (Streamable HTTP)");
+      return;
+    } catch (e) {
+      console.warn("Streamable HTTP failed, trying SSE transport...", (e as Error).message);
+    }
+
+    // Fallback to SSE transport
+    try {
+      // Re-create client since previous connect may have changed state
+      this.client = new Client(
+        { name: "readmere-backend", version: "1.0.0" },
+        { capabilities: {} }
+      );
+      const sseTransport = new SSEClientTransport(mcpUrl, {
+        eventSourceInit: {
+          headers: {
+            ...(this.token ? { Authorization: `Bearer ${this.token}` } : {}),
+          },
+        },
+      } as any);
+      await this.client.connect(sseTransport);
+      this.isConnected = true;
+      console.log("Connected to Archestra MCP Gateway (SSE)");
     } catch (e) {
       console.error("Failed to connect to Archestra, falling back to local agents.");
       this.useLocalFallback = true;
@@ -54,19 +80,30 @@ export class ArchestraService {
   }
 
   private async callLocalAgent(port: number, toolName: string, args: any) {
-    const localTransport = new SSEClientTransport(new URL(`http://localhost:${port}/sse`));
     const localClient = new Client(
       { name: "local-dispatcher", version: "1.0.0" },
       { capabilities: {} }
     );
 
-    await localClient.connect(localTransport);
+    // Try Streamable HTTP first (new protocol), fall back to SSE
+    try {
+      const transport = new StreamableHTTPClientTransport(
+        new URL(`http://localhost:${port}/mcp`)
+      );
+      await localClient.connect(transport);
+    } catch {
+      // Fallback to SSE
+      const sseTransport = new SSEClientTransport(
+        new URL(`http://localhost:${port}/sse`)
+      );
+      await localClient.connect(sseTransport);
+    }
+
     const result = await localClient.callTool({
       name: toolName,
       arguments: args,
     });
-    
-    // Cleanup connection
+
     await localClient.close();
     return result;
   }
@@ -89,7 +126,7 @@ export class ArchestraService {
 
       const port = portMap[name];
       if (!port) throw new Error(`Tool ${name} not supported in local mode`);
-      
+
       console.log(`Direct Call: ${name} on port ${port}`);
       return await this.callLocalAgent(port, name, args);
     }

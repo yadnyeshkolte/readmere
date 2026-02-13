@@ -1,7 +1,10 @@
 #!/usr/bin/env node
+import { randomUUID } from "node:crypto";
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
+import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
+import { isInitializeRequest } from "@modelcontextprotocol/sdk/types.js";
 import express from "express";
 import cors from "cors";
 import {
@@ -13,7 +16,7 @@ const GROQ_API_KEY = process.env.GROQ_API_KEY;
 
 async function callGroq(messages: any[], maxTokens: number = 4000) {
   if (!GROQ_API_KEY) throw new Error("GROQ_API_KEY not set");
-  
+
   let lastError;
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
@@ -121,9 +124,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     // CRITICAL: Truncate analysis to remove the full file tree (thousands of lines)
     // and only keep the summary statistics.
     const cleanAnalysis = {
-        ...analysis,
-        tree: undefined, // Remove the massive array
-        fileCount: analysis.tree?.length || analysis.fileCount
+      ...analysis,
+      tree: undefined, // Remove the massive array
+      fileCount: analysis.tree?.length || analysis.fileCount
     };
 
     const systemPrompt = `You are an expert technical writer specializing in open-source documentation. 
@@ -211,27 +214,57 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 if (process.env.PORT) {
   const app = express();
   app.use(cors());
-  // Removed express.json() as it interferes with MCP stream reading
+  app.use(express.json());
 
-  let transport: SSEServerTransport;
+  const transports: Record<string, StreamableHTTPServerTransport | SSEServerTransport> = {};
 
-  app.get("/sse", async (req, res) => {
-    if (transport) {
-      try { await server.close(); } catch(e) {}
+  // ── Streamable HTTP Transport (MCP 2025-11-25) ──
+  app.all("/mcp", async (req, res) => {
+    const sessionId = req.headers["mcp-session-id"] as string | undefined;
+    let transport: StreamableHTTPServerTransport;
+
+    if (sessionId && transports[sessionId] instanceof StreamableHTTPServerTransport) {
+      transport = transports[sessionId] as StreamableHTTPServerTransport;
+    } else if (!sessionId && req.method === "POST" && isInitializeRequest(req.body)) {
+      transport = new StreamableHTTPServerTransport({
+        sessionIdGenerator: () => randomUUID(),
+        onsessioninitialized: (id) => {
+          transports[id] = transport;
+        },
+      });
+      transport.onclose = () => {
+        const sid = transport.sessionId;
+        if (sid) delete transports[sid];
+      };
+      await server.connect(transport);
+    } else {
+      res.status(400).json({ jsonrpc: "2.0", error: { code: -32000, message: "Bad Request: No valid session" }, id: null });
+      return;
     }
-    transport = new SSEServerTransport("messages", res);
+    await transport.handleRequest(req, res, req.body);
+  });
+
+  // ── Legacy SSE Transport (MCP 2024-11-05) ──
+  app.get("/sse", async (req, res) => {
+    const transport = new SSEServerTransport("/messages", res);
+    transports[transport.sessionId] = transport;
+    res.on("close", () => { delete transports[transport.sessionId]; });
     await server.connect(transport);
   });
 
   app.post("/messages", async (req, res) => {
-    if (transport) {
+    const sessionId = req.query.sessionId as string;
+    const transport = transports[sessionId];
+    if (transport instanceof SSEServerTransport) {
       await transport.handlePostMessage(req, res);
+    } else {
+      res.status(400).send("No active SSE stream for session");
     }
   });
 
   const port = process.env.PORT;
   app.listen(port, () => {
-    console.log(`Doc Generator MCP running on port ${port}`);
+    console.log(`Doc Generator MCP running on port ${port} (SSE + Streamable HTTP)`);
   });
 } else {
   const transport = new StdioServerTransport();

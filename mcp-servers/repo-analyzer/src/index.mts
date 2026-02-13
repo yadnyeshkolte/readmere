@@ -1,7 +1,10 @@
 #!/usr/bin/env node
+import { randomUUID } from "node:crypto";
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
+import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
+import { isInitializeRequest } from "@modelcontextprotocol/sdk/types.js";
 import express from "express";
 import cors from "cors";
 import {
@@ -60,7 +63,7 @@ function getExtension(path: string): string {
 function isKeyFile(path: string): boolean {
   const name = path.split('/').pop()?.toLowerCase();
   return [
-    'readme.md', 'package.json', 'cargo.toml', 'pyproject.toml', 
+    'readme.md', 'package.json', 'cargo.toml', 'pyproject.toml',
     'go.mod', 'makefile', 'dockerfile', 'gemfile', 'pom.xml',
     'requirements.txt', 'setup.py', 'composer.json'
   ].includes(name || '');
@@ -194,8 +197,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         if (isEntryPoint(file.path)) analysis.entryPoints.push(file.path);
         if (isConfigFile(file.path)) analysis.configFiles.push(file.path);
         if (isTestDir(file.path)) {
-            const dir = file.path.split('/')[0];
-            if (!analysis.testDirs.includes(dir)) analysis.testDirs.push(dir);
+          const dir = file.path.split('/')[0];
+          if (!analysis.testDirs.includes(dir)) analysis.testDirs.push(dir);
         }
       }
     });
@@ -232,7 +235,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
   if (name === "identify_important_files") {
     const { fileTree } = args as { fileTree: { path: string, type: string }[] };
-    
+
     // Simple heuristic ranking
     const scoredFiles = fileTree
       .filter(f => f.type === 'blob')
@@ -243,10 +246,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
         // Priority 1: Project definition
         if (['package.json', 'cargo.toml', 'pyproject.toml', 'go.mod', 'pom.xml', 'build.gradle'].includes(name)) score += 100;
-        
+
         // Priority 2: Documentation
         if (name.includes('readme')) score += 90;
-        
+
         // Priority 3: Entry points
         if (/^(main|index|app|server)\./.test(name)) score += 80;
 
@@ -258,7 +261,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
         // Penalty: Lock files, assets, deep nesting
         if (name.includes('lock')) score -= 50;
-        if (path.match(/\.(png|jpg|svg|ico|json|map)$/)) score -= 20; 
+        if (path.match(/\.(png|jpg|svg|ico|json|map)$/)) score -= 20;
         if (path.split('/').length > 4) score -= 10;
         if (path.includes('node_modules') || path.includes('dist') || path.includes('vendor')) score = -100;
 
@@ -279,27 +282,50 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 if (process.env.PORT) {
   const app = express();
   app.use(cors());
-  // Removed express.json() as it interferes with MCP stream reading
+  app.use(express.json());
 
-  let transport: SSEServerTransport;
+  const transports: Record<string, StreamableHTTPServerTransport | SSEServerTransport> = {};
+
+  app.all("/mcp", async (req, res) => {
+    const sessionId = req.headers["mcp-session-id"] as string | undefined;
+    let transport: StreamableHTTPServerTransport;
+
+    if (sessionId && transports[sessionId] instanceof StreamableHTTPServerTransport) {
+      transport = transports[sessionId] as StreamableHTTPServerTransport;
+    } else if (!sessionId && req.method === "POST" && isInitializeRequest(req.body)) {
+      transport = new StreamableHTTPServerTransport({
+        sessionIdGenerator: () => randomUUID(),
+        onsessioninitialized: (id) => { transports[id] = transport; },
+      });
+      transport.onclose = () => { const sid = transport.sessionId; if (sid) delete transports[sid]; };
+      await server.connect(transport);
+    } else {
+      res.status(400).json({ jsonrpc: "2.0", error: { code: -32000, message: "Bad Request: No valid session" }, id: null });
+      return;
+    }
+    await transport.handleRequest(req, res, req.body);
+  });
 
   app.get("/sse", async (req, res) => {
-    if (transport) {
-      try { await server.close(); } catch(e) {}
-    }
-    transport = new SSEServerTransport("messages", res);
+    const transport = new SSEServerTransport("/messages", res);
+    transports[transport.sessionId] = transport;
+    res.on("close", () => { delete transports[transport.sessionId]; });
     await server.connect(transport);
   });
 
   app.post("/messages", async (req, res) => {
-    if (transport) {
+    const sessionId = req.query.sessionId as string;
+    const transport = transports[sessionId];
+    if (transport instanceof SSEServerTransport) {
       await transport.handlePostMessage(req, res);
+    } else {
+      res.status(400).send("No active SSE stream for session");
     }
   });
 
   const port = process.env.PORT;
   app.listen(port, () => {
-    console.log(`Repo Analyzer MCP running on port ${port}`);
+    console.log(`Repo Analyzer MCP running on port ${port} (SSE + Streamable HTTP)`);
   });
 } else {
   const transport = new StdioServerTransport();
