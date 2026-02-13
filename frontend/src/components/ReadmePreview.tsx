@@ -40,8 +40,8 @@ export default function ReadmePreview({ content }: ReadmePreviewProps) {
           <button
             onClick={() => setActiveTab('preview')}
             className={`px-4 py-3.5 text-xs font-medium border-b-2 transition-colors ${activeTab === 'preview'
-                ? 'border-emerald-500 text-white'
-                : 'border-transparent text-zinc-500 hover:text-zinc-300'
+              ? 'border-emerald-500 text-white'
+              : 'border-transparent text-zinc-500 hover:text-zinc-300'
               }`}
           >
             <span className="flex items-center gap-1.5">
@@ -52,8 +52,8 @@ export default function ReadmePreview({ content }: ReadmePreviewProps) {
           <button
             onClick={() => setActiveTab('code')}
             className={`px-4 py-3.5 text-xs font-medium border-b-2 transition-colors ${activeTab === 'code'
-                ? 'border-emerald-500 text-white'
-                : 'border-transparent text-zinc-500 hover:text-zinc-300'
+              ? 'border-emerald-500 text-white'
+              : 'border-transparent text-zinc-500 hover:text-zinc-300'
               }`}
           >
             <span className="flex items-center gap-1.5">
@@ -88,7 +88,7 @@ export default function ReadmePreview({ content }: ReadmePreviewProps) {
       {/* Content */}
       <div className="flex-1 overflow-auto">
         {activeTab === 'preview' ? (
-          <div className="p-8 md:p-10 prose-readme">
+          <div className="p-8 md:p-10 prose prose-invert prose-emerald max-w-none prose-headings:border-b prose-headings:border-zinc-800 prose-headings:pb-3 prose-pre:bg-zinc-900 prose-pre:border prose-pre:border-zinc-800 prose-pre:rounded-xl prose-img:rounded-xl prose-hr:border-zinc-800 prose-a:text-emerald-400 prose-code:text-emerald-400">
             <ReactMarkdown
               remarkPlugins={[remarkGfm]}
               components={{
