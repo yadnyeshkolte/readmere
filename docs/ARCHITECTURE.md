@@ -17,7 +17,7 @@ graph TD
         Archestra -->|Tool Call| Agent2[Code Reader MCP]
         Archestra -->|Tool Call| Agent3[Doc Generator MCP]
         
-        Agent3 -->|LLM Call| Groq[Groq Llama 3]
+        Agent3 -->|LLM Call| Gemini[Gemini 2.5 Flash]
         Agent1 -->|API Call| GitHub[GitHub API]
         Agent2 -->|API Call| GitHub
     end
@@ -55,7 +55,7 @@ These are standalone microservices running as Docker containers, registered with
 #### Agent 3: Doc Generator (`doc-generator`)
 - **Tools**: `generate_readme`, `validate_readme`, `enhance_readme`.
 - **Logic**:
-  - Uses **Groq (Llama 3.3 70B)** for high-speed, high-quality generation.
+  - Uses **Gemini 2.5 Flash** for high-speed, high-quality generation.
   - Performs a self-correction loop if the generated README quality score is low.
 
 ## Archestra Integration
@@ -75,5 +75,5 @@ This project demonstrates the power of Archestra as a central orchestration plat
 5.  Backend calls `read_files` for the top 20 files.
 6.  Backend calls `smart_chunk` to prepare the prompt.
 7.  Backend calls `generate_readme` with metadata + chunks.
-8.  Agent 3 calls Groq and returns Markdown.
+8.  Agent 3 calls Gemini and returns Markdown.
 9.  Backend streams the result to Frontend.

@@ -41,7 +41,7 @@ sudo apt install docker-compose-plugin
     ```
 
     **Crucial Configuration:**
-    - `GROQ_API_KEY`: Your Groq key.
+    - `GEMINI_API_KEY`: Your Gemini API key (from [Google AI Studio](https://aistudio.google.com/apikey)).
     - `GITHUB_TOKEN`: Your GitHub PAT.
     - `NEXT_PUBLIC_API_URL`: Set this to your **Public IP or Domain**.
       - Example (IP): `http://123.45.67.89:8080`
@@ -112,13 +112,13 @@ If you don't want to manage a VPS, you can deploy the engine and the platform to
 2.  Name: `archestra-admin`.
 3.  SDK: **Docker**.
 4.  Upload the contents of the **`archestra-platform/`** folder.
-5.  Set `ARCHESTRA_CHAT_GROQ_API_KEY` in Space Secrets.
+5.  Set `ARCHESTRA_CHAT_GEMINI_API_KEY` in Space Secrets.
 
 ### 2. The Engine (Backend + Agents)
 1.  Create another Docker Space.
 2.  Name: `readmere-engine`.
 3.  Upload the contents of the **`readmere-huggingface-engine/`** folder.
-4.  Add Secrets: `GROQ_API_KEY`, `GITHUB_TOKEN`.
+4.  Add Secrets: `GEMINI_API_KEY`, `GITHUB_TOKEN`.
 5.  Link this engine to your Archestra space using the public URL provided by HF.
 
 ### 3. The Frontend

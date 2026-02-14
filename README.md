@@ -3,7 +3,7 @@
 > **Bring dead documentation back to life.** Paste a GitHub URL — five AI agents analyze your repo, read the code, generate a professional README, score it, and improve it — all in seconds.
 
 [![Built with Archestra](https://img.shields.io/badge/Built%20with-Archestra-00d4aa?style=for-the-badge&logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJ3aGl0ZSI+PGNpcmNsZSBjeD0iMTIiIGN5PSIxMiIgcj0iMTAiLz48L3N2Zz4=)](https://archestra.ai)
-[![Powered by Groq](https://img.shields.io/badge/Powered%20by-Groq-orange?style=for-the-badge)](https://groq.com)
+[![Powered by Gemini](https://img.shields.io/badge/Powered%20by-Gemini%202.5%20Flash-4285F4?style=for-the-badge&logo=google&logoColor=white)](https://aistudio.google.com)
 [![MCP Protocol](https://img.shields.io/badge/Protocol-MCP-blue?style=for-the-badge)](https://modelcontextprotocol.io)
 [![2 Fast 2 MCP](https://img.shields.io/badge/Hackathon-2%20Fast%202%20MCP-red?style=for-the-badge)](https://devpost.com)
 
@@ -44,12 +44,12 @@ graph TB
     Archestra --> RS
     Archestra --> RI
     
-    DG --> Groq[Llama 3.3 70B<br/>via Groq]
-    RS --> Groq
-    RI --> Groq
+    DG --> Gemini[Gemini 2.5 Flash<br/>via Google AI]
+    RS --> Gemini
+    RI --> Gemini
     
     style Archestra fill:#10b981,color:#000
-    style Groq fill:#f97316,color:#000
+    style Gemini fill:#4285F4,color:#fff
 ```
 
 ### The Five Agents
@@ -58,7 +58,7 @@ graph TB
 |-------|-----------|------|---------|-----------|
 | 🔍 **Repo Analyzer** | `repo-analyzer` | 3002 | Crawls GitHub repos via API, maps file trees, identifies tech stack | `analyze_repository`, `get_repo_metadata`, `identify_important_files` |
 | 📖 **Code Reader** | `code-reader` | 3003 | Reads files, extracts function signatures, intelligently chunks code for LLM context | `read_files`, `extract_signatures`, `smart_chunk` |
-| ✍️ **Doc Generator** | `doc-generator` | 3004 | Generates comprehensive README using Llama 3.3 70B with custom instructions support | `generate_readme` |
+| ✍️ **Doc Generator** | `doc-generator` | 3004 | Generates comprehensive README using Gemini 2.5 Flash with custom instructions support | `generate_readme` |
 | 📊 **README Scorer** | `readme-scorer` | 3005 | Validates README quality across 5 weighted categories (100-point scale) | `validate_readme` |
 | ✨ **README Improver** | `readme-improver` | 3006 | Enhances README based on scoring suggestions, preserving existing content | `enhance_readme` |
 
@@ -68,7 +68,7 @@ graph TB
 |-------|-----------|
 | **Frontend** | Next.js 14, TypeScript, CSS (dark theme, glassmorphism) |
 | **Backend** | Express.js, TypeScript, Server-Sent Events (SSE) |
-| **AI Model** | Llama 3.3 70B via [Groq](https://groq.com) (blazing fast inference) |
+| **AI Model** | Gemini 2.5 Flash via [Google AI Studio](https://aistudio.google.com) (fast, generous free tier) |
 | **Protocol** | [Model Context Protocol (MCP)](https://modelcontextprotocol.io) |
 | **Orchestration** | [Archestra Platform](https://archestra.ai) |
 | **Transport** | Streamable HTTP + SSE (dual-transport support) |
@@ -142,7 +142,7 @@ Users can click **"✨ Improve Score"** to re-enhance the README based on the sp
 ### Prerequisites
 - Node.js 20+
 - GitHub Personal Access Token ([create one](https://github.com/settings/tokens))
-- Groq API Key ([get one free](https://console.groq.com))
+- Gemini API Key ([get one free](https://aistudio.google.com/apikey))
 
 ### Local Development
 
@@ -162,14 +162,14 @@ cd frontend && npm install && cd ..
 
 # Set environment variables
 cp .env.example .env
-# Edit .env with your GROQ_API_KEY and GITHUB_TOKEN
+# Edit .env with your GEMINI_API_KEY and GITHUB_TOKEN
 
 # Start all 5 MCP servers
 PORT=3002 GITHUB_TOKEN=$GITHUB_TOKEN npx tsx mcp-servers/repo-analyzer/src/index.mts &
 PORT=3003 GITHUB_TOKEN=$GITHUB_TOKEN npx tsx mcp-servers/code-reader/src/index.mts &
-PORT=3004 GROQ_API_KEY=$GROQ_API_KEY npx tsx mcp-servers/doc-generator/src/index.mts &
-PORT=3005 GROQ_API_KEY=$GROQ_API_KEY npx tsx mcp-servers/readme-scorer/src/index.mts &
-PORT=3006 GROQ_API_KEY=$GROQ_API_KEY npx tsx mcp-servers/readme-improver/src/index.mts &
+PORT=3004 GEMINI_API_KEY=$GEMINI_API_KEY npx tsx mcp-servers/doc-generator/src/index.mts &
+PORT=3005 GEMINI_API_KEY=$GEMINI_API_KEY npx tsx mcp-servers/readme-scorer/src/index.mts &
+PORT=3006 GEMINI_API_KEY=$GEMINI_API_KEY npx tsx mcp-servers/readme-improver/src/index.mts &
 
 # Start backend
 cd backend && npm run dev &
@@ -293,7 +293,7 @@ Instead of one monolithic agent doing everything, we split responsibilities into
 
 1. **Repo Analyzer** focuses solely on GitHub API interaction — no LLM needed
 2. **Code Reader** handles file I/O and intelligent chunking — no LLM needed
-3. **Doc Generator** is the creative writer — uses Llama 3.3 70B
+3. **Doc Generator** is the creative writer — uses Gemini 2.5 Flash
 4. **README Scorer** is the quality checker — independent LLM evaluation
 5. **README Improver** acts on feedback — targeted LLM enhancement
 

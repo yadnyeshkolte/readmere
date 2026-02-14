@@ -24,7 +24,7 @@ README Resurrector follows a **pipeline architecture**:
 Frontend → Backend API → Orchestrator → [MCP Servers] → LLM → Response
 ```
 
-The user submits a GitHub URL. The backend orchestrator calls 5 MCP servers in sequence, each performing a specialized task. Three of the servers use Groq's Llama 3.3 70B model for AI tasks. The frontend receives real-time progress via Server-Sent Events.
+The user submits a GitHub URL. The backend orchestrator calls 5 MCP servers in sequence, each performing a specialized task. Three of the servers use Google's Gemini 2.5 Flash model for AI tasks. The frontend receives real-time progress via Server-Sent Events.
 
 ### Why MCP (Model Context Protocol)?
 
@@ -90,8 +90,8 @@ And returns:
 
 ### MCP #3: Doc Generator (Port 3004)
 **File**: `mcp-servers/doc-generator/src/index.mts`  
-**Dependencies**: Groq API (`GROQ_API_KEY`)  
-**Uses LLM**: Llama 3.3 70B, max 4000 completion tokens
+**Dependencies**: Gemini API (`GEMINI_API_KEY`)  
+**Uses LLM**: Gemini 2.5 Flash, max 4000 completion tokens
 
 | Tool | Input | Output | What it does |
 |------|-------|--------|-------------|
@@ -114,8 +114,8 @@ The user content includes repo metadata, analysis summary, chunked source code, 
 
 ### MCP #4: README Scorer (Port 3005)
 **File**: `mcp-servers/readme-scorer/src/index.mts`  
-**Dependencies**: Groq API (`GROQ_API_KEY`)  
-**Uses LLM**: Llama 3.3 70B, max 1000 completion tokens
+**Dependencies**: Gemini API (`GEMINI_API_KEY`)  
+**Uses LLM**: Gemini 2.5 Flash, max 1000 completion tokens
 
 | Tool | Input | Output | What it does |
 |------|-------|--------|-------------|
@@ -138,8 +138,8 @@ Returns structured JSON:
 
 ### MCP #5: README Improver (Port 3006)
 **File**: `mcp-servers/readme-improver/src/index.mts`  
-**Dependencies**: Groq API (`GROQ_API_KEY`)  
-**Uses LLM**: Llama 3.3 70B, max 4000 completion tokens
+**Dependencies**: Gemini API (`GEMINI_API_KEY`)  
+**Uses LLM**: Gemini 2.5 Flash, max 4000 completion tokens
 
 | Tool | Input | Output | What it does |
 |------|-------|--------|-------------|
@@ -263,10 +263,10 @@ Express App
 - **Context isolation**: Scorer doesn't know generator's instructions (prevents bias)
 - **Hackathon wow factor**: 5 MCP agents sounds awesome 🏆
 
-### Why Groq over OpenAI?
-- **Speed**: Groq's custom LPU chips make Llama 3.3 70B extremely fast
-- **Free tier**: Generous free API access for hackathon use
-- **Open source model**: Llama 3.3 70B is open-weight
+### Why Gemini over OpenAI?
+- **Speed**: Gemini 2.5 Flash is optimized for fast inference
+- **Free tier**: Very generous free API access via Google AI Studio (1M+ tokens/day)
+- **Multimodal**: Gemini supports text, code, and more
 
 ### Why SSE for progress?
 - **Real-time updates**: Users see each step as it happens

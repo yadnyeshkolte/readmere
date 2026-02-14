@@ -21,7 +21,7 @@ README Resurrector is a **multi-agent MCP (Model Context Protocol) system** that
 
 ### Key Environment Variables
 ```
-GROQ_API_KEY=<Groq API key for Llama 3 70B>
+GEMINI_API_KEY=<Gemini API key from Google AI Studio>
 GITHUB_TOKEN=<GitHub Personal Access Token for repo access>
 NEXT_PUBLIC_API_URL=<Backend URL, e.g. https://yadnyeshkolte-readmere.hf.space>
 ```
@@ -36,9 +36,9 @@ NEXT_PUBLIC_API_URL=<Backend URL, e.g. https://yadnyeshkolte-readmere.hf.space>
 |------|--------|------|-------|------|
 | 3002 | **repo-analyzer** | `mcp-servers/repo-analyzer/src/index.mts` | `get_repo_metadata`, `analyze_repository`, `identify_important_files`, `get_repo_insights` | No |
 | 3003 | **code-reader** | `mcp-servers/code-reader/src/index.mts` | `read_files`, `extract_signatures`, `smart_chunk` | No |
-| 3004 | **doc-generator** | `mcp-servers/doc-generator/src/index.mts` | `generate_readme` | Yes (Groq) |
-| 3005 | **readme-scorer** | `mcp-servers/readme-scorer/src/index.mts` | `validate_readme` | Yes (Groq) |
-| 3006 | **readme-improver** | `mcp-servers/readme-improver/src/index.mts` | `enhance_readme` | Yes (Groq) |
+| 3004 | **doc-generator** | `mcp-servers/doc-generator/src/index.mts` | `generate_readme` | Yes (Gemini) |
+| 3005 | **readme-scorer** | `mcp-servers/readme-scorer/src/index.mts` | `validate_readme` | Yes (Gemini) |
+| 3006 | **readme-improver** | `mcp-servers/readme-improver/src/index.mts` | `enhance_readme` | Yes (Gemini) |
 
 ### Data Flow
 ```
@@ -51,7 +51,7 @@ User → Frontend (Next.js) → Backend API (Express, port 7860)
     5. read_files (3003) → raw file contents
     6. extract_signatures (3003) → function/class signatures
     7. smart_chunk (3003, maxTokens=12000) → LLM-optimized code chunks
-    8. generate_readme (3004) → README markdown (Llama 3 70B, 4000 tokens, enriched with insights)
+    8. generate_readme (3004) → README markdown (Gemini 2.5 Flash, 4000 tokens, enriched with insights)
     9. validate_readme (3005) → quality score JSON with 5 categories
    10. enhance_readme (3006) → improved README (if score < 80)
   ← SSE stream progress events back to frontend (5 steps)

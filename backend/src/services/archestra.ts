@@ -3,6 +3,50 @@ import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import EventSource from "eventsource";
 
+// Timeout wrapper to prevent tool calls from hanging indefinitely
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(`Tool call '${label}' timed out after ${ms / 1000}s`)), ms);
+    promise.then(
+      (val) => { clearTimeout(timer); resolve(val); },
+      (err) => { clearTimeout(timer); reject(err); }
+    );
+  });
+}
+
+// Delay helper for rate-limit backoff
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+const MAX_CLIENT_RETRY_WAIT_MS = 60_000; // Client-side: never wait more than 60s
+
+// Check if an error is a rate-limit (429) error
+function isRateLimitError(error: any): boolean {
+  const msg = error?.message || '';
+  return msg.includes('429') || msg.includes('rate_limit') || msg.includes('Rate limit') || msg.includes('RESOURCE_EXHAUSTED');
+}
+
+// Check if this is a quota exhaustion (unrecoverable by short waits)
+function isDailyLimitError(error: any): boolean {
+  const msg = error?.message || '';
+  return msg.includes('tokens per day') || msg.includes('TPD') || msg.includes('requests per day') || msg.includes('RPD') || msg.includes('daily token limit') || msg.includes('rate limit exhausted') || msg.includes('quota');
+}
+
+// Extract wait time from rate-limit error message, capped to MAX_CLIENT_RETRY_WAIT_MS
+function extractRetryDelay(error: any): number {
+  const msg = error?.message || '';
+  const match = msg.match(/try again in (\d+)m([\d.]+)s/);
+  if (match) {
+    return Math.min((parseInt(match[1]) * 60 + parseFloat(match[2])) * 1000 + 1000, MAX_CLIENT_RETRY_WAIT_MS);
+  }
+  const secMatch = msg.match(/try again in ([\d.]+)s/);
+  if (secMatch) {
+    return Math.min(parseFloat(secMatch[1]) * 1000 + 1000, MAX_CLIENT_RETRY_WAIT_MS);
+  }
+  return 30_000; // default 30s
+}
+
 export class ArchestraService {
   private localClients: Map<number, Client> = new Map();
   private connectionPromises: Map<number, Promise<Client>> = new Map();
@@ -86,6 +130,7 @@ export class ArchestraService {
       'get_repo_insights': 3002,
       'read_files': 3003,
       'extract_signatures': 3003,
+      'extract_commands': 3003,
       'smart_chunk': 3003,
       'generate_readme': 3004,
       'validate_readme': 3005,
@@ -97,17 +142,49 @@ export class ArchestraService {
 
     console.log(`Calling tool: ${name} on port ${port}`);
 
-    try {
-      const client = await this.getLocalClient(port);
-      const result = await client.callTool({ name, arguments: args });
-      return result;
-    } catch (error) {
-      // Connection may have dropped — clear cache and retry once
-      console.warn(`Tool call failed, retrying with fresh connection: ${(error as Error).message}`);
-      this.localClients.delete(port);
+    // Timeout: LLM-backed tools get 120s, others get 60s
+    const llmTools = ['generate_readme', 'enhance_readme', 'validate_readme'];
+    const timeoutMs = llmTools.includes(name) ? 120_000 : 60_000;
+    const maxRetries = 2;
 
-      const client = await this.getLocalClient(port);
-      return await client.callTool({ name, arguments: args });
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        const client = await this.getLocalClient(port);
+        const result = await withTimeout(
+          client.callTool({ name, arguments: args }),
+          timeoutMs,
+          name
+        );
+        return result;
+      } catch (error: any) {
+        const errMsg = (error as Error).message;
+
+        // Daily limit: fail immediately, no point retrying
+        if (isDailyLimitError(error)) {
+          console.error(`Daily token limit exhausted for '${name}' — failing immediately`);
+          throw new Error(`Gemini API rate limit exhausted. Please try again later.`);
+        }
+
+        // Rate-limit (burst): wait for capped delay before retrying
+        if (isRateLimitError(error) && attempt < maxRetries) {
+          const retryDelay = extractRetryDelay(error);
+          console.warn(`Rate limit hit for '${name}', waiting ${Math.round(retryDelay / 1000)}s before retry (attempt ${attempt + 1}/${maxRetries})...`);
+          this.localClients.delete(port);
+          await delay(retryDelay);
+          continue;
+        }
+
+        // Connection error (not rate-limit): retry once with fresh connection
+        if (attempt < maxRetries && !isRateLimitError(error)) {
+          console.warn(`Tool call '${name}' failed, retrying with fresh connection: ${errMsg}`);
+          this.localClients.delete(port);
+          continue;
+        }
+
+        // All retries exhausted
+        console.error(`Tool call '${name}' failed after ${attempt + 1} attempts: ${errMsg}`);
+        throw error;
+      }
     }
   }
 

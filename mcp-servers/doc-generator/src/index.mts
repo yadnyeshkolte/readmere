@@ -13,45 +13,68 @@ import {
   CallToolResult,
 } from "@modelcontextprotocol/sdk/types.js";
 
-const GROQ_API_KEY = process.env.GROQ_API_KEY;
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+const GEMINI_MODEL = "gemini-2.5-flash-preview-05-20";
+const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
 
-async function callGroq(messages: any[], maxTokens: number = 4000) {
-  if (!GROQ_API_KEY) throw new Error("GROQ_API_KEY not set");
+async function callGemini(messages: any[], maxTokens: number = 4000) {
+  if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY not set");
+
+  // Convert OpenAI-style messages to Gemini format
+  const systemInstruction = messages.find((m: any) => m.role === 'system')?.content || '';
+  const contents = messages
+    .filter((m: any) => m.role !== 'system')
+    .map((m: any) => ({
+      role: m.role === 'assistant' ? 'model' : 'user',
+      parts: [{ text: m.content }]
+    }));
 
   let lastError;
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
-      const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 90_000);
+      const response = await fetch(GEMINI_URL, {
         method: "POST",
-        headers: {
-          "Authorization": `Bearer ${GROQ_API_KEY}`,
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          model: "llama-3.3-70b-versatile",
-          messages: messages,
-          temperature: 0.5,
-          max_completion_tokens: maxTokens,
+          ...(systemInstruction ? { systemInstruction: { parts: [{ text: systemInstruction }] } } : {}),
+          contents,
+          generationConfig: {
+            temperature: 0.5,
+            maxOutputTokens: maxTokens,
+          },
         }),
+        signal: controller.signal,
       });
+      clearTimeout(timeout);
 
       if (response.status === 429) {
-        const retryAfter = 2;
-        await new Promise(resolve => setTimeout(resolve, retryAfter * 1000));
+        const errText = await response.text();
+        const waitMs = Math.min(30_000 * (attempt + 1), 120_000);
+        console.warn(`Gemini rate limit (attempt ${attempt + 1}), waiting ${waitMs / 1000}s...`);
+        await new Promise(resolve => setTimeout(resolve, waitMs));
         continue;
       }
 
       if (!response.ok) {
         const err = await response.text();
-        throw new Error(`Groq API Error: ${err}`);
+        throw new Error(`Gemini API Error (${response.status}): ${err}`);
       }
 
       const data: any = await response.json();
-      return data.choices[0].message.content;
+      const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (!text) throw new Error(`Gemini returned empty response: ${JSON.stringify(data)}`);
+      return text;
     } catch (e: any) {
       lastError = e;
-      if (e.message.includes("Rate limit")) {
-        await new Promise(resolve => setTimeout(resolve, 2000 * (attempt + 1)));
+      if (e.name === 'AbortError') {
+        throw new Error('Gemini API request timed out after 90s');
+      }
+      if (e.message?.includes('429') || e.message?.includes('RESOURCE_EXHAUSTED')) {
+        const waitMs = Math.min(30_000 * (attempt + 1), 120_000);
+        console.warn(`Gemini rate limit error (attempt ${attempt + 1}), waiting ${waitMs / 1000}s...`);
+        await new Promise(resolve => setTimeout(resolve, waitMs));
         continue;
       }
       throw e;
@@ -71,7 +94,7 @@ function createServer() {
       tools: [
         {
           name: "generate_readme",
-          description: "Generates a comprehensive README.md using Groq LLM",
+          description: "Generates a comprehensive README.md using Gemini LLM",
           inputSchema: {
             type: "object",
             properties: {
@@ -232,7 +255,7 @@ ${JSON.stringify(codeSummaries, null, 2).substring(0, 15000)}`;
 
       userContent += `\n\nGenerate the complete README.md now.`;
 
-      const readme = await callGroq([
+      const readme = await callGemini([
         { role: "system", content: systemPrompt },
         { role: "user", content: userContent }
       ], maxTokens);

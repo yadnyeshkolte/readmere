@@ -134,11 +134,11 @@ export default function Home() {
               </div>
             </div>
             <p className="text-zinc-400 text-xs leading-relaxed">
-              Uses Llama 3.3 70B via Groq to craft comprehensive, beautiful README files.
+              Uses Gemini 2.5 Flash to craft comprehensive, beautiful README files.
             </p>
             <div className="flex gap-1 mt-3 flex-wrap">
               <span className="px-1.5 py-0.5 rounded text-[9px] bg-violet-950/50 text-violet-500/70 border border-violet-800/20">generate</span>
-              <span className="px-1.5 py-0.5 rounded text-[9px] bg-violet-950/50 text-violet-500/70 border border-violet-800/20">llama3</span>
+              <span className="px-1.5 py-0.5 rounded text-[9px] bg-violet-950/50 text-violet-500/70 border border-violet-800/20">gemini</span>
             </div>
           </div>
 
@@ -230,8 +230,8 @@ export default function Home() {
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 stagger-children">
             {[
-              { icon: '🦙', name: 'Llama 3.3 70B', desc: 'AI Model' },
-              { icon: '⚡', name: 'Groq LPU', desc: 'Ultra-fast inference' },
+              { icon: '✨', name: 'Gemini 2.5 Flash', desc: 'AI Model' },
+              { icon: '⚡', name: 'Google AI', desc: 'Fast inference' },
               { icon: '🔌', name: 'MCP Protocol', desc: 'Tool standard' },
               { icon: '🎭', name: 'Archestra', desc: 'Orchestration' },
               { icon: '⚛️', name: 'Next.js 14', desc: 'Frontend' },

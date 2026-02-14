@@ -108,7 +108,7 @@ export class Orchestrator {
       onProgress("reading", "complete", `Processed ${files.length} files, ${sigCount} signatures extracted`);
 
       // Step 3: Generation
-      onProgress("generation", "running", `Generating ${STYLE_CONFIG[styleKey].label} README with Llama 3 70B...`);
+      onProgress("generation", "running", `Generating ${STYLE_CONFIG[styleKey].label} README with Gemini 2.5 Flash...`);
       const readmeResult = await this.archestra.callTool("generate_readme", {
         metadata,
         analysis,
