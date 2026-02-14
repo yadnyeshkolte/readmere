@@ -87,8 +87,8 @@ export class ArchestraService {
       'extract_signatures': 3003,
       'smart_chunk': 3003,
       'generate_readme': 3004,
-      'validate_readme': 3004,
-      'enhance_readme': 3004
+      'validate_readme': 3005,
+      'enhance_readme': 3006
     };
 
     const port = portMap[name];

@@ -84,29 +84,6 @@ function createServer() {
             required: ["metadata", "analysis", "codeSummaries"],
           },
         },
-        {
-          name: "validate_readme",
-          description: "Validates a generated README for quality and completeness with category breakdown",
-          inputSchema: {
-            type: "object",
-            properties: {
-              readme: { type: "string" },
-            },
-            required: ["readme"],
-          },
-        },
-        {
-          name: "enhance_readme",
-          description: "Enhances specific sections of a README based on suggestions",
-          inputSchema: {
-            type: "object",
-            properties: {
-              readme: { type: "string" },
-              suggestions: { type: "string" },
-            },
-            required: ["readme", "suggestions"],
-          },
-        },
       ],
     };
   });
@@ -173,60 +150,6 @@ ${JSON.stringify(codeSummaries, null, 2).substring(0, 15000)}`;
 
       return {
         content: [{ type: "text", text: readme }],
-      };
-    }
-
-    if (name === "validate_readme") {
-      const { readme } = args as { readme: string };
-      const prompt = `Analyze this README.md and score it across 5 categories. Return ONLY valid JSON in this exact format:
-{
-  "score": <overall 0-100>,
-  "categories": {
-    "completeness": { "score": <0-100>, "label": "Completeness", "weight": 30, "detail": "<one line>" },
-    "accuracy": { "score": <0-100>, "label": "Accuracy", "weight": 25, "detail": "<one line>" },
-    "structure": { "score": <0-100>, "label": "Structure & Formatting", "weight": 20, "detail": "<one line>" },
-    "readability": { "score": <0-100>, "label": "Readability", "weight": 15, "detail": "<one line>" },
-    "visual": { "score": <0-100>, "label": "Visual Appeal", "weight": 10, "detail": "<one line>" }
-  },
-  "suggestions": ["<improvement 1>", "<improvement 2>", "<improvement 3>"]
-}
-
-Scoring guide:
-- Completeness: Has all essential sections (title, description, install, usage, features)
-- Accuracy: Code examples and instructions match the actual tech stack
-- Structure: Proper markdown formatting, logical section order, headers
-- Readability: Clear language, good flow, appropriate length
-- Visual Appeal: Badges, emoji, tables, code blocks with syntax highlighting
-
-The overall score should be the weighted average of category scores.
-
-README to analyze:
-${readme.substring(0, 12000)}`;
-
-      const validation = await callGroq([
-        { role: "system", content: "You are a documentation QA specialist. Return ONLY valid JSON, no markdown wrapping." },
-        { role: "user", content: prompt }
-      ]);
-      return {
-        content: [{ type: "text", text: validation }],
-      };
-    }
-
-    if (name === "enhance_readme") {
-      const { readme, suggestions } = args as { readme: string, suggestions: string };
-      const prompt = `Improve this README based on the following suggestions:
-${suggestions}
-
-Keep ALL existing content but enhance the weak areas. Add missing sections, fix formatting issues, and improve clarity. Return ONLY the complete improved README in raw Markdown.
-
-Original README:
-${readme.substring(0, 15000)}`;
-      const improved = await callGroq([
-        { role: "system", content: "You are an expert technical writer. Return ONLY the improved README in raw Markdown. Do not wrap in code blocks." },
-        { role: "user", content: prompt }
-      ], 4000);
-      return {
-        content: [{ type: "text", text: improved }],
       };
     }
 
