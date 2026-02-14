@@ -1,10 +1,114 @@
 'use client';
 
-import { useEffect, useState, Suspense } from 'react';
+import { useEffect, useState, Suspense, useCallback } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import ProgressTracker from '@/components/ProgressTracker';
 import ReadmePreview from '@/components/ReadmePreview';
 import Link from 'next/link';
+
+// Confetti component — CSS-only, no external deps
+function Confetti() {
+  const colors = ['#10b981', '#06b6d4', '#8b5cf6', '#f59e0b', '#ef4444', '#ec4899'];
+  const pieces = Array.from({ length: 50 }, (_, i) => ({
+    id: i,
+    left: `${Math.random() * 100}%`,
+    color: colors[Math.floor(Math.random() * colors.length)],
+    delay: `${Math.random() * 2}s`,
+    size: `${6 + Math.random() * 8}px`,
+    duration: `${2 + Math.random() * 2}s`,
+  }));
+
+  return (
+    <div className="confetti-container">
+      {pieces.map((p) => (
+        <div
+          key={p.id}
+          className="confetti-piece"
+          style={{
+            left: p.left,
+            backgroundColor: p.color,
+            width: p.size,
+            height: p.size,
+            animationDelay: p.delay,
+            animationDuration: p.duration,
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
+// Toast notification
+function Toast({ message, show, type = 'success' }: { message: string; show: boolean; type?: 'success' | 'info' }) {
+  if (!show) return null;
+  return (
+    <div className="fixed bottom-6 right-6 z-50 toast-enter">
+      <div className={`flex items-center gap-2.5 px-4 py-3 rounded-xl shadow-2xl border text-sm font-medium
+        ${type === 'success' ? 'bg-emerald-950/90 border-emerald-500/30 text-emerald-300' : 'bg-zinc-900/90 border-zinc-700/30 text-zinc-200'}`}>
+        {type === 'success' ? (
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-emerald-400"><polyline points="20 6 9 17 4 12" /></svg>
+        ) : (
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-cyan-400"><circle cx="12" cy="12" r="10" /><path d="M12 16v-4" /><path d="M12 8h.01" /></svg>
+        )}
+        {message}
+      </div>
+    </div>
+  );
+}
+
+// Animated stat card
+function StatCard({ icon, label, value, delay }: { icon: string; label: string; value: string; delay: string }) {
+  return (
+    <div className="animate-counter-pop glass rounded-xl px-3 py-2.5 text-center min-w-[80px]" style={{ animationDelay: delay }}>
+      <div className="text-lg mb-0.5">{icon}</div>
+      <div className="text-white font-bold text-sm">{value}</div>
+      <div className="text-zinc-500 text-[10px] uppercase tracking-wider">{label}</div>
+    </div>
+  );
+}
+
+// README Stats bar
+function ReadmeStats({ content }: { content: string }) {
+  const words = content.split(/\s+/).filter(Boolean).length;
+  const sections = (content.match(/^#{1,3}\s/gm) || []).length;
+  const codeBlocks = (content.match(/```/g) || []).length / 2;
+  const readingTime = Math.max(1, Math.ceil(words / 200));
+  const badges = (content.match(/!\[.*?\]\(https:\/\/img\.shields\.io/g) || []).length;
+
+  return (
+    <div className="glass rounded-2xl p-4 animate-fade-in-up">
+      <p className="text-xs text-zinc-500 uppercase tracking-wider mb-2.5">README Stats</p>
+      <div className="grid grid-cols-2 gap-2">
+        <div className="flex items-center gap-2 text-xs">
+          <span className="text-zinc-400">📝</span>
+          <span className="text-zinc-300">{words.toLocaleString()} words</span>
+        </div>
+        <div className="flex items-center gap-2 text-xs">
+          <span className="text-zinc-400">📑</span>
+          <span className="text-zinc-300">{sections} sections</span>
+        </div>
+        <div className="flex items-center gap-2 text-xs">
+          <span className="text-zinc-400">💻</span>
+          <span className="text-zinc-300">{Math.floor(codeBlocks)} code blocks</span>
+        </div>
+        <div className="flex items-center gap-2 text-xs">
+          <span className="text-zinc-400">⏱️</span>
+          <span className="text-zinc-300">{readingTime} min read</span>
+        </div>
+        {badges > 0 && (
+          <div className="flex items-center gap-2 text-xs">
+            <span className="text-zinc-400">🏷️</span>
+            <span className="text-zinc-300">{badges} badges</span>
+          </div>
+        )}
+        <div className="flex items-center gap-2 text-xs">
+          <span className="text-zinc-400">📏</span>
+          <span className="text-zinc-300">{content.split('\n').length} lines</span>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function GenerateContent() {
   const searchParams = useSearchParams();
@@ -15,10 +119,13 @@ function GenerateContent() {
   const [complete, setComplete] = useState(false);
   const [readme, setReadme] = useState('');
   const [quality, setQuality] = useState<any>(null);
+  const [metadata, setMetadata] = useState<any>(null);
   const [error, setError] = useState('');
   const [elapsed, setElapsed] = useState(0);
   const [improving, setImproving] = useState(false);
   const [showCategories, setShowCategories] = useState(false);
+  const [showConfetti, setShowConfetti] = useState(false);
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'info' } | null>(null);
 
   type StepStatus = 'pending' | 'running' | 'complete' | 'error';
   interface Step { id: string; label: string; status: StepStatus; message: string; }
@@ -29,6 +136,11 @@ function GenerateContent() {
     { id: 'generation', label: 'Generating Documentation', status: 'pending', message: 'Waiting for code...' },
     { id: 'quality', label: 'Quality Check', status: 'pending', message: 'Finalizing...' },
   ]);
+
+  const showToast = useCallback((message: string, type: 'success' | 'info' = 'success') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 3000);
+  }, []);
 
   // Timer
   useEffect(() => {
@@ -101,8 +213,16 @@ function GenerateContent() {
                   } else if (type === 'result') {
                     setReadme(data.readme);
                     setQuality(data.quality);
+                    setMetadata(data.metadata);
                     setComplete(true);
                     setSteps(prev => prev.map(s => ({ ...s, status: 'complete' })));
+
+                    // Trigger confetti on good scores
+                    if (data.quality?.score >= 70) {
+                      setShowConfetti(true);
+                      setTimeout(() => setShowConfetti(false), 4000);
+                    }
+                    showToast('README resurrected successfully! 🧟‍♂️');
                   } else if (type === 'error') {
                     setError(data.message);
                     setSteps(prev => prev.map(s => s.status === 'running' ? { ...s, status: 'error' } : s));
@@ -122,7 +242,7 @@ function GenerateContent() {
     };
 
     startGeneration();
-  }, [repoUrl, started]);
+  }, [repoUrl, started, showToast]);
 
   const handleImprove = async () => {
     if (!readme || improving) return;
@@ -141,8 +261,14 @@ function GenerateContent() {
       const result = await response.json();
       setReadme(result.readme);
       setQuality(result.quality);
+
+      if (result.quality?.score >= 70) {
+        setShowConfetti(true);
+        setTimeout(() => setShowConfetti(false), 4000);
+      }
+      showToast(`Score improved to ${result.quality?.score}/100! ✨`);
     } catch (err: any) {
-      console.error("Improve error:", err);
+      showToast('Improvement failed, try again', 'info');
     } finally {
       setImproving(false);
     }
@@ -178,6 +304,12 @@ function GenerateContent() {
 
   return (
     <div className="flex flex-col lg:flex-row gap-8 p-6 md:p-10 max-w-[1600px] mx-auto w-full animate-fade-in-up">
+      {/* Confetti celebration */}
+      {showConfetti && <Confetti />}
+
+      {/* Toast */}
+      {toast && <Toast message={toast.message} show={true} type={toast.type} />}
+
       {/* Left Panel */}
       <div className="w-full lg:w-[360px] space-y-5 shrink-0">
         {/* Repo info */}
@@ -202,6 +334,30 @@ function GenerateContent() {
 
         <ProgressTracker steps={steps} />
 
+        {/* Repo Stats Cards — shown after metadata is available */}
+        {metadata && (
+          <div className="glass rounded-2xl p-4 animate-fade-in-up">
+            <p className="text-xs text-zinc-500 uppercase tracking-wider mb-3">Repository</p>
+            <div className="flex flex-wrap gap-2">
+              {metadata.stars !== undefined && (
+                <StatCard icon="⭐" label="Stars" value={metadata.stars?.toLocaleString() || '0'} delay="0s" />
+              )}
+              {metadata.language && (
+                <StatCard icon="💻" label="Language" value={metadata.language} delay="0.1s" />
+              )}
+              {metadata.forks !== undefined && (
+                <StatCard icon="🍴" label="Forks" value={metadata.forks?.toLocaleString() || '0'} delay="0.2s" />
+              )}
+              {metadata.openIssues !== undefined && (
+                <StatCard icon="📋" label="Issues" value={metadata.openIssues?.toLocaleString() || '0'} delay="0.3s" />
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* README Stats */}
+        {readme && <ReadmeStats content={readme} />}
+
         {quality && (
           <div className="glass rounded-2xl p-5 animate-fade-in-up">
             <div className="flex items-center justify-between mb-3">
@@ -213,16 +369,32 @@ function GenerateContent() {
                 How is this scored?
               </Link>
             </div>
-            <div className="flex items-end gap-3 mb-3">
-              <div className={`text-3xl font-bold ${scoreColor(quality.score)}`}>{quality.score}</div>
-              <div className="text-zinc-500 text-sm pb-0.5">/100</div>
-            </div>
-            {/* Score bar */}
-            <div className="w-full h-1.5 bg-zinc-800 rounded-full overflow-hidden mb-4">
-              <div
-                className={`h-full rounded-full transition-all duration-1000 ease-out bg-gradient-to-r ${barColor(quality.score)}`}
-                style={{ width: `${quality.score}%` }}
-              />
+
+            {/* Circular Score */}
+            <div className="flex items-center gap-4 mb-4">
+              <div className="relative w-16 h-16">
+                <svg className="w-16 h-16 -rotate-90" viewBox="0 0 100 100">
+                  <circle cx="50" cy="50" r="45" fill="none" stroke="rgba(63, 63, 70, 0.3)" strokeWidth="6" />
+                  <circle
+                    cx="50" cy="50" r="45" fill="none"
+                    stroke={quality.score >= 80 ? '#10b981' : quality.score >= 60 ? '#f59e0b' : '#ef4444'}
+                    strokeWidth="6"
+                    strokeLinecap="round"
+                    strokeDasharray="283"
+                    strokeDashoffset={283 - (283 * quality.score) / 100}
+                    className="animate-score-ring"
+                  />
+                </svg>
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <span className={`text-lg font-bold ${scoreColor(quality.score)}`}>{quality.score}</span>
+                </div>
+              </div>
+              <div>
+                <div className="text-sm font-medium text-white">
+                  {quality.score >= 90 ? '🏆 Excellent!' : quality.score >= 80 ? '✅ Great' : quality.score >= 60 ? '⚡ Good' : '🔧 Needs Work'}
+                </div>
+                <div className="text-xs text-zinc-500 mt-0.5">out of 100 points</div>
+              </div>
             </div>
 
             {/* Category Breakdown */}
@@ -314,7 +486,7 @@ function GenerateContent() {
       {/* Right Panel - Preview */}
       <div className="w-full lg:flex-1 min-w-0">
         {readme ? (
-          <ReadmePreview content={readme} />
+          <ReadmePreview content={readme} onCopy={() => showToast('Copied to clipboard! 📋')} />
         ) : (
           <div className="h-[700px] border border-dashed border-zinc-800/50 rounded-2xl flex items-center justify-center bg-zinc-950/30">
             <div className="text-center space-y-4">

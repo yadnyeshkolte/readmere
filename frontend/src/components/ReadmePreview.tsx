@@ -8,9 +8,10 @@ import { useState } from 'react';
 
 interface ReadmePreviewProps {
   content: string;
+  onCopy?: () => void;
 }
 
-export default function ReadmePreview({ content }: ReadmePreviewProps) {
+export default function ReadmePreview({ content, onCopy }: ReadmePreviewProps) {
   const [copied, setCopied] = useState(false);
   const [activeTab, setActiveTab] = useState<'preview' | 'code'>('preview');
 
@@ -18,6 +19,7 @@ export default function ReadmePreview({ content }: ReadmePreviewProps) {
     navigator.clipboard.writeText(content);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+    onCopy?.();
   };
 
   const downloadFile = () => {
