@@ -126,6 +126,8 @@ function GenerateContent() {
   const [showCategories, setShowCategories] = useState(false);
   const [showConfetti, setShowConfetti] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'info' } | null>(null);
+  const [improvePrompt, setImprovePrompt] = useState('');
+  const [showImproveInput, setShowImproveInput] = useState(false);
 
   type StepStatus = 'pending' | 'running' | 'complete' | 'error';
   interface Step { id: string; label: string; status: StepStatus; message: string; }
@@ -249,7 +251,10 @@ function GenerateContent() {
     setImproving(true);
 
     try {
-      const suggestions = quality?.suggestions?.join(', ') || 'Improve overall quality';
+      let suggestions = quality?.suggestions?.join(', ') || 'Improve overall quality';
+      if (improvePrompt.trim()) {
+        suggestions = `User instructions: ${improvePrompt.trim()}. Also: ${suggestions}`;
+      }
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/generate/improve`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -267,6 +272,8 @@ function GenerateContent() {
         setTimeout(() => setShowConfetti(false), 4000);
       }
       showToast(`Score improved to ${result.quality?.score}/100! ✨`);
+      setImprovePrompt('');
+      setShowImproveInput(false);
     } catch (err: any) {
       showToast('Improvement failed, try again', 'info');
     } finally {
@@ -442,29 +449,55 @@ function GenerateContent() {
               </ul>
             )}
 
-            {/* Improve Score Button */}
+            {/* Improve Score Section */}
             {quality.score < 95 && (
-              <button
-                onClick={handleImprove}
-                disabled={improving}
-                className="w-full py-2 rounded-lg text-xs font-medium transition-all duration-300 border
-                  bg-emerald-950/30 border-emerald-500/20 text-emerald-400 hover:bg-emerald-900/40 hover:border-emerald-500/40
-                  disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {improving ? (
-                  <span className="flex items-center justify-center gap-2">
-                    <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                    </svg>
-                    Improving...
-                  </span>
-                ) : (
-                  <span className="flex items-center justify-center gap-1.5">
-                    ✨ Improve Score
-                  </span>
+              <div className="space-y-2">
+                {/* Toggle for custom instructions */}
+                <button
+                  type="button"
+                  onClick={() => setShowImproveInput(!showImproveInput)}
+                  className="flex items-center gap-1.5 text-[10px] text-zinc-600 hover:text-zinc-400 transition-colors w-full"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={`transition-transform ${showImproveInput ? 'rotate-90' : ''}`}>
+                    <polyline points="9 18 15 12 9 6" />
+                  </svg>
+                  Add custom improvement instructions
+                </button>
+
+                {showImproveInput && (
+                  <div className="animate-fade-in">
+                    <textarea
+                      placeholder="e.g. Add more code examples, focus on API docs, make installation clearer..."
+                      value={improvePrompt}
+                      onChange={(e) => setImprovePrompt(e.target.value)}
+                      rows={2}
+                      className="w-full px-3 py-2 rounded-lg bg-zinc-900/80 border border-zinc-700/40 text-white placeholder-zinc-600 focus:outline-none focus:border-emerald-500/40 transition-all text-xs resize-none"
+                    />
+                  </div>
                 )}
-              </button>
+
+                <button
+                  onClick={handleImprove}
+                  disabled={improving}
+                  className="w-full py-2 rounded-lg text-xs font-medium transition-all duration-300 border
+                    bg-emerald-950/30 border-emerald-500/20 text-emerald-400 hover:bg-emerald-900/40 hover:border-emerald-500/40
+                    disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {improving ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                      </svg>
+                      Improving...
+                    </span>
+                  ) : (
+                    <span className="flex items-center justify-center gap-1.5">
+                      ✨ Improve Score {improvePrompt.trim() ? '(with instructions)' : ''}
+                    </span>
+                  )}
+                </button>
+              </div>
             )}
           </div>
         )}
