@@ -14,10 +14,10 @@ import {
 } from "@modelcontextprotocol/sdk/types.js";
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-const GEMINI_MODEL = "gemini-2.5-flash-preview-05-20";
+const GEMINI_MODEL = "gemini-2.5-flash";
 const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
 
-async function callGemini(messages: any[], maxTokens = 1000): Promise<string> {
+async function callGemini(messages: any[], maxTokens = 2048, responseFormat?: string): Promise<string> {
     if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY not set");
 
     const systemInstruction = messages.find((m: any) => m.role === 'system')?.content || '';
@@ -34,16 +34,20 @@ async function callGemini(messages: any[], maxTokens = 1000): Promise<string> {
         try {
             const controller = new AbortController();
             const timeout = setTimeout(() => controller.abort(), 90_000);
+            const generationConfig: any = {
+                temperature: 0.3,
+                maxOutputTokens: maxTokens,
+            };
+            if (responseFormat) {
+                generationConfig.responseMimeType = responseFormat;
+            }
             const response = await fetch(GEMINI_URL, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     ...(systemInstruction ? { systemInstruction: { parts: [{ text: systemInstruction }] } } : {}),
                     contents,
-                    generationConfig: {
-                        temperature: 0.3,
-                        maxOutputTokens: maxTokens,
-                    },
+                    generationConfig,
                 }),
                 signal: controller.signal,
             });
@@ -143,7 +147,7 @@ ${readme.substring(0, 12000)}`;
             const validation = await callGemini([
                 { role: "system", content: "You are a documentation QA specialist who scores README files. Return ONLY valid JSON, no markdown wrapping, no backticks." },
                 { role: "user", content: prompt }
-            ]);
+            ], 2048, "application/json");
             return {
                 content: [{ type: "text", text: validation }],
             };

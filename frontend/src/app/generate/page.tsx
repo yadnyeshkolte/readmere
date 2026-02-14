@@ -303,45 +303,54 @@ function GenerateContent() {
           if (done) break;
 
           buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split('\n');
-          buffer = lines.pop() || '';
 
-          for (let i = 0; i < lines.length; i++) {
-            if (lines[i].startsWith('event: ')) {
-              const type = lines[i].replace('event: ', '').trim();
-              const dataLine = lines[i + 1];
-              if (dataLine?.startsWith('data: ')) {
-                const dataStr = dataLine.replace('data: ', '').trim();
-                i++;
-                try {
-                  const data = JSON.parse(dataStr);
+          // SSE events are separated by double newlines
+          const events = buffer.split('\n\n');
+          // Keep the last part (may be incomplete)
+          buffer = events.pop() || '';
 
-                  if (type === 'progress') {
-                    updateStep(data.step, data.status, data.message);
-                  } else if (type === 'result') {
-                    setReadme(data.readme);
-                    setQuality(data.quality);
-                    setMetadata(data.metadata);
-                    if (data.originalReadme) {
-                      setOriginalReadme(data.originalReadme);
-                    }
-                    setComplete(true);
-                    setSteps(prev => prev.map(s => ({ ...s, status: 'complete' })));
+          for (const eventBlock of events) {
+            const lines = eventBlock.split('\n');
+            let type = '';
+            let dataStr = '';
 
-                    // Trigger confetti on good scores
-                    if (data.quality?.score >= 70) {
-                      setShowConfetti(true);
-                      setTimeout(() => setShowConfetti(false), 4000);
-                    }
-                    showToast('README resurrected successfully! 🧟‍♂️');
-                  } else if (type === 'error') {
-                    setError(data.message);
-                    setSteps(prev => prev.map(s => s.status === 'running' ? { ...s, status: 'error' } : s));
-                  }
-                } catch (e) {
-                  console.error("SSE parse error:", e, dataStr);
-                }
+            for (const line of lines) {
+              if (line.startsWith('event: ')) {
+                type = line.slice(7).trim();
+              } else if (line.startsWith('data: ')) {
+                dataStr += (dataStr ? '\n' : '') + line.slice(6);
               }
+            }
+
+            if (!type || !dataStr) continue;
+
+            try {
+              const data = JSON.parse(dataStr);
+
+              if (type === 'progress') {
+                updateStep(data.step, data.status, data.message);
+              } else if (type === 'result') {
+                setReadme(data.readme);
+                setQuality(data.quality);
+                setMetadata(data.metadata);
+                if (data.originalReadme) {
+                  setOriginalReadme(data.originalReadme);
+                }
+                setComplete(true);
+                setSteps(prev => prev.map(s => ({ ...s, status: 'complete' })));
+
+                // Trigger confetti on good scores
+                if (data.quality?.score >= 70) {
+                  setShowConfetti(true);
+                  setTimeout(() => setShowConfetti(false), 4000);
+                }
+                showToast('README resurrected successfully! 🧟‍♂️');
+              } else if (type === 'error') {
+                setError(data.message);
+                setSteps(prev => prev.map(s => s.status === 'running' ? { ...s, status: 'error' } : s));
+              }
+            } catch (e) {
+              console.error("SSE parse error:", e, dataStr.substring(0, 200));
             }
           }
         }

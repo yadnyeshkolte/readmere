@@ -14,10 +14,10 @@ import {
 } from "@modelcontextprotocol/sdk/types.js";
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-const GEMINI_MODEL = "gemini-2.5-flash-preview-05-20";
+const GEMINI_MODEL = "gemini-2.5-flash";
 const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
 
-async function callGemini(messages: any[], maxTokens = 4000): Promise<string> {
+async function callGemini(messages: any[], maxTokens = 8192): Promise<string> {
     if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY not set");
 
     const systemInstruction = messages.find((m: any) => m.role === 'system')?.content || '';
@@ -139,7 +139,7 @@ ${readme.substring(0, 15000)}`;
             const improved = await callGemini([
                 { role: "system", content: "You are an expert technical writer who improves open-source documentation. Return ONLY the improved README in raw Markdown. Never wrap in code blocks." },
                 { role: "user", content: prompt }
-            ], 4000);
+            ], 8192);
             return {
                 content: [{ type: "text", text: improved }],
             };

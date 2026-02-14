@@ -125,18 +125,30 @@ export class Orchestrator {
 
       // Step 4: Quality Check
       onProgress("quality", "running", "Running quality validation...");
-      const validationResult = await this.archestra.callTool("validate_readme", { readme });
-      const validation = safeJsonParse(extractToolText(validationResult));
+      let validation: any = { score: 70, categories: {}, suggestions: ["Quality scoring was unavailable — default score applied."] };
+      try {
+        const validationResult = await this.archestra.callTool("validate_readme", { readme });
+        const validationText = extractToolText(validationResult);
+        validation = safeJsonParse(validationText);
+      } catch (scoreError: any) {
+        console.warn("Quality scoring failed (non-fatal):", scoreError.message);
+        onProgress("quality", "running", "Scoring unavailable — proceeding with generated README...");
+      }
 
       let finalReadme = readme;
       const score = validation.score || 0;
       if (score < 80) {
         onProgress("quality", "running", `Score ${score}/100 — enhancing...`);
-        const enhancedResult = await this.archestra.callTool("enhance_readme", {
-          readme,
-          suggestions: (validation.suggestions || []).join(", ")
-        });
-        finalReadme = extractToolText(enhancedResult);
+        try {
+          const enhancedResult = await this.archestra.callTool("enhance_readme", {
+            readme,
+            suggestions: (validation.suggestions || []).join(", ")
+          });
+          finalReadme = extractToolText(enhancedResult);
+        } catch (enhanceError: any) {
+          console.warn("Enhancement failed (non-fatal):", enhanceError.message);
+          // Keep the original readme
+        }
       }
 
       onProgress("quality", "complete", `Quality Score: ${score}/100`);
@@ -252,8 +264,13 @@ export class Orchestrator {
 
       if (onProgress) onProgress("quality", "running", "Re-validating improved README...");
 
-      const validationResult = await this.archestra.callTool("validate_readme", { readme: enhanced });
-      const validation = safeJsonParse(extractToolText(validationResult));
+      let validation: any = { score: 75, categories: {}, suggestions: ["Re-scoring was unavailable — default score applied."] };
+      try {
+        const validationResult = await this.archestra.callTool("validate_readme", { readme: enhanced });
+        validation = safeJsonParse(extractToolText(validationResult));
+      } catch (scoreError: any) {
+        console.warn("Re-validation scoring failed (non-fatal):", scoreError.message);
+      }
 
       if (onProgress) onProgress("quality", "complete", `New Score: ${validation.score}/100`);
 

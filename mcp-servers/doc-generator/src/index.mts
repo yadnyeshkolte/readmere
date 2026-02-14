@@ -14,10 +14,10 @@ import {
 } from "@modelcontextprotocol/sdk/types.js";
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-const GEMINI_MODEL = "gemini-2.5-flash-preview-05-20";
+const GEMINI_MODEL = "gemini-2.5-flash";
 const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
 
-async function callGemini(messages: any[], maxTokens: number = 4000) {
+async function callGemini(messages: any[], maxTokens: number = 8192) {
   if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY not set");
 
   // Convert OpenAI-style messages to Gemini format
@@ -124,7 +124,7 @@ function createServer() {
       // Style-specific system prompts and token limits
       const stylePrompts: Record<string, { prompt: string; tokens: number }> = {
         minimal: {
-          tokens: 1500,
+          tokens: 4096,
           prompt: `You are a concise technical writer. Generate a MINIMAL README.md — short, clean, and actionable.
 
 Include ONLY these sections:
@@ -141,7 +141,7 @@ Rules:
 - Maximum ~150 lines total`
         },
         standard: {
-          tokens: 3000,
+          tokens: 8192,
           prompt: `You are a world-class technical writer who creates beautiful, comprehensive README.md files. You write READMEs that developers LOVE — clear, professional, and visually appealing.
 
 Include these sections:
@@ -164,7 +164,7 @@ Rules:
 - Be thorough but concise`
         },
         detailed: {
-          tokens: 4000,
+          tokens: 16384,
           prompt: `You are a world-class technical writer who creates beautiful, comprehensive README.md files for open-source projects. You write READMEs that developers LOVE — clear, professional, and visually appealing.
 
 Your README MUST include ALL of the following sections (skip only if truly irrelevant):
