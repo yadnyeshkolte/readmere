@@ -78,13 +78,15 @@ function createServer() {
               metadata: { type: "object" },
               analysis: { type: "object" },
               codeSummaries: { type: "array" },
+              signatures: { type: "array", description: "Function/class signatures extracted from code" },
+              userPrompt: { type: "string", description: "Optional user instructions for README customization" },
             },
             required: ["metadata", "analysis", "codeSummaries"],
           },
         },
         {
           name: "validate_readme",
-          description: "Validates a generated README for quality and completeness",
+          description: "Validates a generated README for quality and completeness with category breakdown",
           inputSchema: {
             type: "object",
             properties: {
@@ -113,22 +115,61 @@ function createServer() {
     const { name, arguments: args } = request.params;
 
     if (name === "generate_readme") {
-      const { metadata, analysis, codeSummaries } = args as any;
+      const { metadata, analysis, codeSummaries, signatures, userPrompt } = args as any;
       const cleanAnalysis = { ...analysis, tree: undefined, fileCount: analysis.tree?.length || analysis.fileCount };
 
-      const systemPrompt = `You are an expert technical writer specializing in open-source documentation. 
-    Return ONLY the raw Markdown content.`;
+      const systemPrompt = `You are a world-class technical writer who creates beautiful, comprehensive README.md files for open-source projects. You write READMEs that developers LOVE — clear, professional, and visually appealing.
 
-      const userPrompt = `
-    Repo Metadata: ${JSON.stringify(metadata).substring(0, 1000)}
-    Repo Analysis Summary: ${JSON.stringify(cleanAnalysis).substring(0, 2000)}
-    Key Code Chunks: ${JSON.stringify(codeSummaries).substring(0, 10000)}
-    Generate the full README.md now. Return ONLY markdown.`;
+Your README MUST include ALL of the following sections (skip only if truly irrelevant):
+
+1. **Title & Badges** — Project name as H1, then shields.io badges for language, license, stars, build status
+2. **Description** — 2-3 compelling sentences explaining what the project does and why it matters
+3. **Features** — Bullet list of key features with emoji icons
+4. **Tech Stack** — Table or badge list of technologies used
+5. **Project Structure** — File tree showing key directories (use code block)
+6. **Getting Started** — Prerequisites, installation steps, environment setup
+7. **Usage** — Code examples showing how to use the project (with syntax-highlighted code blocks)
+8. **API Reference** — If applicable, document key endpoints/functions with parameters and return types
+9. **Configuration** — Environment variables, config files
+10. **Contributing** — How to contribute, coding standards
+11. **License** — License type
+
+Rules:
+- Return ONLY raw Markdown, no wrapping backticks or explanations
+- Use proper Markdown formatting: headers, code blocks with language tags, tables, bullet lists
+- Include REAL code examples based on the actual source code provided
+- Make installation instructions specific to the tech stack detected
+- Be thorough but concise — every section should add value`;
+
+      let userContent = `## Repository Information
+
+**Metadata:**
+${JSON.stringify(metadata, null, 2).substring(0, 1500)}
+
+**Analysis Summary:**
+- Total files: ${cleanAnalysis.fileCount || '?'}
+- Languages: ${JSON.stringify(cleanAnalysis.languageBreakdown || {}).substring(0, 500)}
+- Key files: ${JSON.stringify(cleanAnalysis.keyFiles || []).substring(0, 500)}
+- Entry points: ${JSON.stringify(cleanAnalysis.entryPoints || []).substring(0, 500)}
+- Config files: ${JSON.stringify(cleanAnalysis.configFiles || []).substring(0, 300)}
+
+**Key Source Code:**
+${JSON.stringify(codeSummaries, null, 2).substring(0, 15000)}`;
+
+      if (signatures && signatures.length > 0) {
+        userContent += `\n\n**Function/Class Signatures:**\n${JSON.stringify(signatures, null, 2).substring(0, 3000)}`;
+      }
+
+      if (userPrompt) {
+        userContent += `\n\n**User's Custom Instructions:**\n${userPrompt}`;
+      }
+
+      userContent += `\n\nGenerate the complete README.md now.`;
 
       const readme = await callGroq([
         { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt }
-      ], 2500);
+        { role: "user", content: userContent }
+      ], 4000);
 
       return {
         content: [{ type: "text", text: readme }],
@@ -137,9 +178,33 @@ function createServer() {
 
     if (name === "validate_readme") {
       const { readme } = args as { readme: string };
-      const prompt = `Analyze README and provide score/suggestions. JSON: { "score": number, "suggestions": ["string"] }\n\nREADME:\n${readme.substring(0, 10000)}`;
+      const prompt = `Analyze this README.md and score it across 5 categories. Return ONLY valid JSON in this exact format:
+{
+  "score": <overall 0-100>,
+  "categories": {
+    "completeness": { "score": <0-100>, "label": "Completeness", "weight": 30, "detail": "<one line>" },
+    "accuracy": { "score": <0-100>, "label": "Accuracy", "weight": 25, "detail": "<one line>" },
+    "structure": { "score": <0-100>, "label": "Structure & Formatting", "weight": 20, "detail": "<one line>" },
+    "readability": { "score": <0-100>, "label": "Readability", "weight": 15, "detail": "<one line>" },
+    "visual": { "score": <0-100>, "label": "Visual Appeal", "weight": 10, "detail": "<one line>" }
+  },
+  "suggestions": ["<improvement 1>", "<improvement 2>", "<improvement 3>"]
+}
+
+Scoring guide:
+- Completeness: Has all essential sections (title, description, install, usage, features)
+- Accuracy: Code examples and instructions match the actual tech stack
+- Structure: Proper markdown formatting, logical section order, headers
+- Readability: Clear language, good flow, appropriate length
+- Visual Appeal: Badges, emoji, tables, code blocks with syntax highlighting
+
+The overall score should be the weighted average of category scores.
+
+README to analyze:
+${readme.substring(0, 12000)}`;
+
       const validation = await callGroq([
-        { role: "system", content: "You are a documentation QA specialist. Return ONLY JSON." },
+        { role: "system", content: "You are a documentation QA specialist. Return ONLY valid JSON, no markdown wrapping." },
         { role: "user", content: prompt }
       ]);
       return {
@@ -149,11 +214,17 @@ function createServer() {
 
     if (name === "enhance_readme") {
       const { readme, suggestions } = args as { readme: string, suggestions: string };
-      const prompt = `Improve README based on: ${suggestions}\n\nOriginal README:\n${readme.substring(0, 15000)}`;
+      const prompt = `Improve this README based on the following suggestions:
+${suggestions}
+
+Keep ALL existing content but enhance the weak areas. Add missing sections, fix formatting issues, and improve clarity. Return ONLY the complete improved README in raw Markdown.
+
+Original README:
+${readme.substring(0, 15000)}`;
       const improved = await callGroq([
-        { role: "system", content: "You are an expert technical writer. Improve the README." },
+        { role: "system", content: "You are an expert technical writer. Return ONLY the improved README in raw Markdown. Do not wrap in code blocks." },
         { role: "user", content: prompt }
-      ], 3000);
+      ], 4000);
       return {
         content: [{ type: "text", text: improved }],
       };

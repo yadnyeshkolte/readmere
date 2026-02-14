@@ -4,7 +4,7 @@ import { Orchestrator } from '../agents/orchestrator.js';
 const router = Router();
 
 router.post('/', async (req: Request, res: Response) => {
-  const { repoUrl } = req.body;
+  const { repoUrl, userPrompt } = req.body;
 
   if (!repoUrl || !repoUrl.includes('github.com')) {
     return res.status(400).json({ error: 'Invalid GitHub URL' });
@@ -14,14 +14,12 @@ router.post('/', async (req: Request, res: Response) => {
   const isSSE = req.headers.accept === 'text/event-stream';
 
   if (isSSE) {
-    // Send headers and flush immediately to establish the SSE connection
     res.writeHead(200, {
       'Content-Type': 'text/event-stream',
       'Cache-Control': 'no-cache',
       'Connection': 'keep-alive',
-      'X-Accel-Buffering': 'no', // Disable buffering for nginx/proxies
+      'X-Accel-Buffering': 'no',
     });
-    // Send an initial heartbeat to confirm stream is open
     res.write(`event: progress\ndata: ${JSON.stringify({ step: "analysis", status: "running", message: "Initializing agents..." })}\n\n`);
   }
 
@@ -32,7 +30,6 @@ router.post('/', async (req: Request, res: Response) => {
       try {
         res.write(`event: ${type}\ndata: ${JSON.stringify(data)}\n\n`);
       } catch (e) {
-        // Connection may have been closed by client
         console.error("SSE write error:", e);
       }
     }
@@ -41,7 +38,7 @@ router.post('/', async (req: Request, res: Response) => {
   try {
     const result = await orchestrator.generateReadme(repoUrl, (step, status, message) => {
       sendEvent('progress', { step, status, message });
-    });
+    }, userPrompt);
 
     if (isSSE) {
       sendEvent('result', result);
@@ -57,6 +54,28 @@ router.post('/', async (req: Request, res: Response) => {
     } else {
       res.status(500).json({ error: error.message });
     }
+  }
+});
+
+// Improve endpoint — takes existing README + suggestions and returns enhanced version
+router.post('/improve', async (req: Request, res: Response) => {
+  const { readme, suggestions } = req.body;
+
+  if (!readme) {
+    return res.status(400).json({ error: 'Missing readme content' });
+  }
+
+  const orchestrator = new Orchestrator();
+
+  try {
+    const result = await orchestrator.improveReadme(
+      readme,
+      suggestions || 'Improve overall quality, add missing sections, enhance formatting'
+    );
+    res.json(result);
+  } catch (error: any) {
+    console.error("Improve error:", error);
+    res.status(500).json({ error: error.message });
   }
 });
 

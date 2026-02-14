@@ -9,7 +9,6 @@ function extractToolText(result: any): string {
     throw new Error("Empty response from MCP tool");
   }
   const text = result.content[0].text;
-  // Check if the tool returned an error
   if (result.isError) {
     throw new Error(`MCP tool error: ${text}`);
   }
@@ -23,7 +22,7 @@ export class Orchestrator {
     this.archestra = new ArchestraService();
   }
 
-  async generateReadme(repoUrl: string, onProgress: ProgressCallback) {
+  async generateReadme(repoUrl: string, onProgress: ProgressCallback, userPrompt?: string) {
     try {
       // Step 1: Analysis
       onProgress("analysis", "running", "Fetching repository metadata...");
@@ -51,17 +50,20 @@ export class Orchestrator {
       const signatures = safeJsonParse(extractToolText(signaturesResult));
 
       onProgress("reading", "running", "Optimizing context for LLM...");
-      const chunksResult = await this.archestra.callTool("smart_chunk", { files, maxTokens: 3000 });
+      const chunksResult = await this.archestra.callTool("smart_chunk", { files, maxTokens: 12000 });
       const chunks = safeJsonParse(extractToolText(chunksResult));
 
-      onProgress("reading", "complete", `Processed ${files.length} files, ${signatures.reduce((a: number, s: any) => a + (s.signatures?.length || 0), 0)} signatures extracted`);
+      const sigCount = signatures.reduce((a: number, s: any) => a + (s.signatures?.length || 0), 0);
+      onProgress("reading", "complete", `Processed ${files.length} files, ${sigCount} signatures extracted`);
 
       // Step 3: Generation
       onProgress("generation", "running", "Generating README with Llama 3 70B...");
       const readmeResult = await this.archestra.callTool("generate_readme", {
         metadata,
         analysis,
-        codeSummaries: chunks
+        codeSummaries: chunks,
+        signatures,
+        userPrompt
       });
       const readme = extractToolText(readmeResult);
 
@@ -73,16 +75,17 @@ export class Orchestrator {
       const validation = safeJsonParse(extractToolText(validationResult));
 
       let finalReadme = readme;
-      if (validation.score < 80) {
-        onProgress("quality", "running", `Score ${validation.score}/100 — enhancing...`);
+      const score = validation.score || 0;
+      if (score < 80) {
+        onProgress("quality", "running", `Score ${score}/100 — enhancing...`);
         const enhancedResult = await this.archestra.callTool("enhance_readme", {
           readme,
-          suggestions: validation.suggestions.join(", ")
+          suggestions: (validation.suggestions || []).join(", ")
         });
         finalReadme = extractToolText(enhancedResult);
       }
 
-      onProgress("quality", "complete", `Quality Score: ${validation.score}/100`);
+      onProgress("quality", "complete", `Quality Score: ${score}/100`);
 
       return {
         readme: finalReadme,
@@ -93,6 +96,33 @@ export class Orchestrator {
     } catch (error: any) {
       console.error("Orchestration error:", error);
       onProgress("error", "error", error.message);
+      throw error;
+    }
+  }
+
+  async improveReadme(readme: string, suggestions: string, onProgress?: ProgressCallback) {
+    try {
+      if (onProgress) onProgress("quality", "running", "Enhancing README based on suggestions...");
+
+      const enhancedResult = await this.archestra.callTool("enhance_readme", {
+        readme,
+        suggestions
+      });
+      const enhanced = extractToolText(enhancedResult);
+
+      if (onProgress) onProgress("quality", "running", "Re-validating improved README...");
+
+      const validationResult = await this.archestra.callTool("validate_readme", { readme: enhanced });
+      const validation = safeJsonParse(extractToolText(validationResult));
+
+      if (onProgress) onProgress("quality", "complete", `New Score: ${validation.score}/100`);
+
+      return {
+        readme: enhanced,
+        quality: validation
+      };
+    } catch (error: any) {
+      console.error("Improve error:", error);
       throw error;
     }
   }

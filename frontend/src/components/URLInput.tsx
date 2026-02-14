@@ -7,6 +7,8 @@ export default function URLInput() {
   const [url, setUrl] = useState('');
   const [error, setError] = useState('');
   const [isFocused, setIsFocused] = useState(false);
+  const [showPrompt, setShowPrompt] = useState(false);
+  const [userPrompt, setUserPrompt] = useState('');
   const router = useRouter();
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -17,7 +19,11 @@ export default function URLInput() {
     }
     setError('');
     const encodedUrl = encodeURIComponent(url);
-    router.push(`/generate?repo=${encodedUrl}`);
+    const params = new URLSearchParams({ repo: encodedUrl });
+    if (userPrompt.trim()) {
+      params.set('prompt', encodeURIComponent(userPrompt.trim()));
+    }
+    router.push(`/generate?${params.toString()}`);
   };
 
   return (
@@ -45,6 +51,45 @@ export default function URLInput() {
         <p className="text-red-400 text-sm ml-1 animate-fade-in">
           <span className="mr-1">⚠</span>{error}
         </p>
+      )}
+
+      {/* Custom Instructions Toggle */}
+      <button
+        type="button"
+        onClick={() => setShowPrompt(!showPrompt)}
+        className="flex items-center gap-2 text-xs text-zinc-500 hover:text-zinc-300 transition-colors ml-1 w-fit"
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          className={`transition-transform duration-200 ${showPrompt ? 'rotate-90' : ''}`}
+        >
+          <polyline points="9 18 15 12 9 6" />
+        </svg>
+        <span>Custom Instructions</span>
+        {userPrompt && <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>}
+      </button>
+
+      {showPrompt && (
+        <div className="animate-fade-in">
+          <textarea
+            placeholder="e.g. Focus on API documentation, add deployment instructions for AWS, include architecture diagrams..."
+            value={userPrompt}
+            onChange={(e) => setUserPrompt(e.target.value)}
+            rows={3}
+            className="w-full px-4 py-3 rounded-xl bg-zinc-900 border border-zinc-700/50 text-white placeholder-zinc-600 focus:outline-none focus:border-emerald-500/50 transition-all text-sm resize-none"
+          />
+          <p className="text-xs text-zinc-600 mt-1 ml-1">
+            Guide the AI on what to emphasize in your README
+          </p>
+        </div>
       )}
 
       <button
