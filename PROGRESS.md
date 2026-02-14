@@ -34,7 +34,7 @@ NEXT_PUBLIC_API_URL=<Backend URL, e.g. https://yadnyeshkolte-readmere.hf.space>
 
 | Port | Server | File | Tools | LLM? |
 |------|--------|------|-------|------|
-| 3002 | **repo-analyzer** | `mcp-servers/repo-analyzer/src/index.mts` | `get_repo_metadata`, `analyze_repository`, `identify_important_files` | No |
+| 3002 | **repo-analyzer** | `mcp-servers/repo-analyzer/src/index.mts` | `get_repo_metadata`, `analyze_repository`, `identify_important_files`, `get_repo_insights` | No |
 | 3003 | **code-reader** | `mcp-servers/code-reader/src/index.mts` | `read_files`, `extract_signatures`, `smart_chunk` | No |
 | 3004 | **doc-generator** | `mcp-servers/doc-generator/src/index.mts` | `generate_readme` | Yes (Groq) |
 | 3005 | **readme-scorer** | `mcp-servers/readme-scorer/src/index.mts` | `validate_readme` | Yes (Groq) |
@@ -44,16 +44,17 @@ NEXT_PUBLIC_API_URL=<Backend URL, e.g. https://yadnyeshkolte-readmere.hf.space>
 ```
 User → Frontend (Next.js) → Backend API (Express, port 7860)
   → Orchestrator calls MCP tools via Archestra service:
-    1. get_repo_metadata (3002) → repo metadata JSON
+    1. get_repo_metadata (3002) → repo metadata JSON (stars, forks, issues, watchers, etc.)
     2. analyze_repository (3002) → file tree + language breakdown
     3. identify_important_files (3002) → list of key file paths
-    4. read_files (3003) → raw file contents
-    5. extract_signatures (3003) → function/class signatures
-    6. smart_chunk (3003, maxTokens=12000) → LLM-optimized code chunks
-    7. generate_readme (3004) → README markdown (Llama 3 70B, 4000 tokens)
-    8. validate_readme (3005) → quality score JSON with 5 categories
-    9. enhance_readme (3006) → improved README (if score < 80)
-  ← SSE stream progress events back to frontend
+    4. get_repo_insights (3002) → issues, PRs, contributors, releases, community health
+    5. read_files (3003) → raw file contents
+    6. extract_signatures (3003) → function/class signatures
+    7. smart_chunk (3003, maxTokens=12000) → LLM-optimized code chunks
+    8. generate_readme (3004) → README markdown (Llama 3 70B, 4000 tokens, enriched with insights)
+    9. validate_readme (3005) → quality score JSON with 5 categories
+   10. enhance_readme (3006) → improved README (if score < 80)
+  ← SSE stream progress events back to frontend (5 steps)
 ```
 
 ### Key Backend Files
@@ -90,12 +91,23 @@ User → Frontend (Next.js) → Backend API (Express, port 7860)
 - [x] SSE streaming for real-time progress updates
 
 ### README Generation
-- [x] Detailed system prompt requiring 11 sections (title, badges, features, tech stack, etc.)
+- [x] Detailed system prompt requiring 14 sections (title, badges, features, tech stack, changelog, known issues, community, etc.)
 - [x] Function/class signatures passed to LLM
 - [x] 12K token code context via smart chunking
 - [x] 4000 max completion tokens
 - [x] Optional user custom instructions (userPrompt)
 - [x] Auto-enhancement when score < 80
+- [x] Community insights injected into LLM prompt (issues, PRs, contributors, releases, community health)
+
+### Repository Insights
+- [x] `get_repo_insights` MCP tool fetching 5 data categories in parallel
+- [x] Recent open issues (top 10, with labels and comment counts)
+- [x] Recently merged PRs (top 10, with authors)
+- [x] Top contributors (top 10, with commit counts)
+- [x] Latest releases (top 5, with tag names and dates)
+- [x] Community health profile (contributing guide, CoC, issue/PR templates)
+- [x] Enriched repo metadata (forks, open issues, watchers, created date, wiki, discussions, pages)
+- [x] Graceful error handling — partial insight failures don't block the pipeline
 
 ### Quality Scoring
 - [x] 5-category weighted scoring: Completeness (30%), Accuracy (25%), Structure (20%), Readability (15%), Visual Appeal (10%)
@@ -107,7 +119,7 @@ User → Frontend (Next.js) → Backend API (Express, port 7860)
 - [x] Dark theme with glassmorphism, emerald/cyan gradients
 - [x] URL input with validation
 - [x] Collapsible "Custom Instructions" textarea
-- [x] 4-step progress tracker with animations
+- [x] 5-step progress tracker with animations (Analysis → Insights → Reading → Generation → Quality)
 - [x] README preview with markdown rendering, copy, and download
 - [x] Quality report with expandable category breakdown
 - [x] "Improve Score" button for re-enhancement

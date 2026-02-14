@@ -83,6 +83,7 @@ export class ArchestraService {
       'analyze_repository': 3002,
       'get_repo_metadata': 3002,
       'identify_important_files': 3002,
+      'get_repo_insights': 3002,
       'read_files': 3003,
       'extract_signatures': 3003,
       'smart_chunk': 3003,

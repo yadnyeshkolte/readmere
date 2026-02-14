@@ -79,6 +79,7 @@ function createServer() {
               analysis: { type: "object" },
               codeSummaries: { type: "array" },
               signatures: { type: "array", description: "Function/class signatures extracted from code" },
+              insights: { type: "object", description: "Community insights: issues, PRs, contributors, releases" },
               userPrompt: { type: "string", description: "Optional user instructions for README customization" },
             },
             required: ["metadata", "analysis", "codeSummaries"],
@@ -92,7 +93,7 @@ function createServer() {
     const { name, arguments: args } = request.params;
 
     if (name === "generate_readme") {
-      const { metadata, analysis, codeSummaries, signatures, userPrompt } = args as any;
+      const { metadata, analysis, codeSummaries, signatures, insights, userPrompt } = args as any;
       const cleanAnalysis = { ...analysis, tree: undefined, fileCount: analysis.tree?.length || analysis.fileCount };
 
       const systemPrompt = `You are a world-class technical writer who creates beautiful, comprehensive README.md files for open-source projects. You write READMEs that developers LOVE — clear, professional, and visually appealing.
@@ -108,15 +109,20 @@ Your README MUST include ALL of the following sections (skip only if truly irrel
 7. **Usage** — Code examples showing how to use the project (with syntax-highlighted code blocks)
 8. **API Reference** — If applicable, document key endpoints/functions with parameters and return types
 9. **Configuration** — Environment variables, config files
-10. **Contributing** — How to contribute, coding standards
+10. **Contributing** — How to contribute, coding standards, mention top contributors if available
 11. **License** — License type
+12. **Changelog / Recent Activity** — If release or PR data is provided, include a brief changelog or "What's New" section highlighting recent merged PRs or releases
+13. **Known Issues / Roadmap** — If open issues data is provided, mention notable known issues or areas of active development
+14. **Community & Support** — If community health data is available, mention contributing guidelines, code of conduct, wiki, discussions
 
 Rules:
 - Return ONLY raw Markdown, no wrapping backticks or explanations
 - Use proper Markdown formatting: headers, code blocks with language tags, tables, bullet lists
 - Include REAL code examples based on the actual source code provided
 - Make installation instructions specific to the tech stack detected
-- Be thorough but concise — every section should add value`;
+- Be thorough but concise — every section should add value
+- When contributor data is available, acknowledge top contributors
+- When issue/PR data is available, use it to show project activity and health`;
 
       let userContent = `## Repository Information
 
@@ -135,6 +141,29 @@ ${JSON.stringify(codeSummaries, null, 2).substring(0, 15000)}`;
 
       if (signatures && signatures.length > 0) {
         userContent += `\n\n**Function/Class Signatures:**\n${JSON.stringify(signatures, null, 2).substring(0, 3000)}`;
+      }
+
+      if (insights && Object.keys(insights).length > 0) {
+        userContent += `\n\n**Community & Activity Insights:**`;
+        if (insights.topContributors?.length > 0) {
+          userContent += `\n- Top Contributors: ${JSON.stringify(insights.topContributors.map((c: any) => `${c.login} (${c.contributions} commits)`)).substring(0, 500)}`;
+        }
+        if (insights.recentIssues?.length > 0) {
+          userContent += `\n- Recent Open Issues: ${JSON.stringify(insights.recentIssues.map((i: any) => `#${i.number}: ${i.title} [${i.labels.join(', ')}]`)).substring(0, 800)}`;
+        }
+        if (insights.recentPRs?.length > 0) {
+          userContent += `\n- Recently Merged PRs: ${JSON.stringify(insights.recentPRs.map((p: any) => `#${p.number}: ${p.title} by ${p.author}`)).substring(0, 800)}`;
+        }
+        if (insights.latestReleases?.length > 0) {
+          userContent += `\n- Latest Releases: ${JSON.stringify(insights.latestReleases.map((r: any) => `${r.tagName} - ${r.name} (${r.publishedAt})`)).substring(0, 500)}`;
+        }
+        if (insights.communityHealth) {
+          userContent += `\n- Community Health Score: ${insights.communityHealth.healthPercentage}%`;
+          userContent += `\n- Has Contributing Guide: ${insights.communityHealth.hasContributing}`;
+          userContent += `\n- Has Code of Conduct: ${insights.communityHealth.hasCodeOfConduct}`;
+          userContent += `\n- Has Issue Template: ${insights.communityHealth.hasIssueTemplate}`;
+          userContent += `\n- Has PR Template: ${insights.communityHealth.hasPullRequestTemplate}`;
+        }
       }
 
       if (userPrompt) {

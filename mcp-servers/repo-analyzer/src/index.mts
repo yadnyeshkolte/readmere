@@ -106,7 +106,7 @@ function createServer() {
         },
         {
           name: "get_repo_metadata",
-          description: "Fetches repository metadata",
+          description: "Fetches repository metadata including stars, forks, issues, and more",
           inputSchema: {
             type: "object",
             properties: {
@@ -133,6 +133,17 @@ function createServer() {
               },
             },
             required: ["fileTree"],
+          },
+        },
+        {
+          name: "get_repo_insights",
+          description: "Fetches community insights: recent issues, merged PRs, top contributors, releases, and community health",
+          inputSchema: {
+            type: "object",
+            properties: {
+              repoUrl: { type: "string", description: "Full GitHub repository URL" },
+            },
+            required: ["repoUrl"],
           },
         },
       ],
@@ -201,11 +212,18 @@ function createServer() {
         name: data.name,
         description: data.description,
         stars: data.stargazers_count,
+        forks: data.forks_count,
+        openIssues: data.open_issues_count,
+        watchers: data.subscribers_count,
         language: data.language,
         license: data.license?.name || "None",
         topics: data.topics,
         defaultBranch: data.default_branch,
-        updatedAt: data.updated_at
+        createdAt: data.created_at,
+        updatedAt: data.updated_at,
+        hasPages: data.has_pages,
+        hasWiki: data.has_wiki,
+        hasDiscussions: data.has_discussions,
       };
 
       return {
@@ -239,6 +257,99 @@ function createServer() {
 
       return {
         content: [{ type: "text", text: JSON.stringify(topFiles, null, 2) }],
+      };
+    }
+
+    if (name === "get_repo_insights") {
+      const { repoUrl } = args as { repoUrl: string };
+      const repoInfo = parseGithubUrl(repoUrl);
+      if (!repoInfo) throw new Error("Invalid GitHub URL");
+
+      const base = `https://api.github.com/repos/${repoInfo.owner}/${repoInfo.repo}`;
+
+      // Helper: fetch JSON with error tolerance
+      const safeFetch = async (url: string) => {
+        try {
+          const resp = await fetch(url, { headers: HEADERS });
+          if (!resp.ok) return null;
+          return await resp.json();
+        } catch {
+          return null;
+        }
+      };
+
+      // Fetch all insights in parallel
+      const [issuesData, prsData, contributorsData, releasesData, communityData] = await Promise.all([
+        safeFetch(`${base}/issues?state=open&per_page=10&sort=updated&direction=desc`),
+        safeFetch(`${base}/pulls?state=closed&sort=updated&direction=desc&per_page=15`),
+        safeFetch(`${base}/contributors?per_page=10`),
+        safeFetch(`${base}/releases?per_page=5`),
+        safeFetch(`${base}/community/profile`),
+      ]);
+
+      // Process issues (filter out PRs — GitHub API returns PRs in issues endpoint)
+      const recentIssues = (issuesData || [])
+        .filter((i: any) => !i.pull_request)
+        .slice(0, 10)
+        .map((i: any) => ({
+          title: i.title,
+          number: i.number,
+          labels: (i.labels || []).map((l: any) => l.name),
+          createdAt: i.created_at,
+          comments: i.comments,
+        }));
+
+      // Process PRs (only merged ones)
+      const recentPRs = (prsData || [])
+        .filter((p: any) => p.merged_at)
+        .slice(0, 10)
+        .map((p: any) => ({
+          title: p.title,
+          number: p.number,
+          mergedAt: p.merged_at,
+          author: p.user?.login,
+        }));
+
+      // Process contributors
+      const topContributors = (contributorsData || [])
+        .slice(0, 10)
+        .map((c: any) => ({
+          login: c.login,
+          contributions: c.contributions,
+          avatarUrl: c.avatar_url,
+        }));
+
+      // Process releases
+      const latestReleases = (releasesData || [])
+        .slice(0, 5)
+        .map((r: any) => ({
+          tagName: r.tag_name,
+          name: r.name,
+          publishedAt: r.published_at,
+          prerelease: r.prerelease,
+        }));
+
+      // Process community health
+      const communityHealth = communityData ? {
+        healthPercentage: communityData.health_percentage,
+        hasCodeOfConduct: !!communityData.files?.code_of_conduct,
+        hasContributing: !!communityData.files?.contributing,
+        hasIssueTemplate: !!communityData.files?.issue_template,
+        hasPullRequestTemplate: !!communityData.files?.pull_request_template,
+        hasReadme: !!communityData.files?.readme,
+        hasLicense: !!communityData.files?.license,
+      } : null;
+
+      const insights = {
+        recentIssues,
+        recentPRs,
+        topContributors,
+        latestReleases,
+        communityHealth,
+      };
+
+      return {
+        content: [{ type: "text", text: JSON.stringify(insights, null, 2) }],
       };
     }
 

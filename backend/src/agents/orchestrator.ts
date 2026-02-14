@@ -40,6 +40,22 @@ export class Orchestrator {
 
       onProgress("analysis", "complete", `Analyzed ${analysis.fileCount || '?'} files across ${Object.keys(analysis.languageBreakdown || {}).length} languages`);
 
+      // Step 1.5: Gather Insights
+      onProgress("insights", "running", "Fetching issues, PRs, contributors...");
+      let insights: any = {};
+      try {
+        const insightsResult = await this.archestra.callTool("get_repo_insights", { repoUrl });
+        insights = safeJsonParse(extractToolText(insightsResult));
+        const issueCount = insights.recentIssues?.length || 0;
+        const prCount = insights.recentPRs?.length || 0;
+        const contributorCount = insights.topContributors?.length || 0;
+        const releaseCount = insights.latestReleases?.length || 0;
+        onProgress("insights", "complete", `Found ${issueCount} issues, ${prCount} PRs, ${contributorCount} contributors, ${releaseCount} releases`);
+      } catch (e: any) {
+        console.warn("Insights fetch failed (non-fatal):", e.message);
+        onProgress("insights", "complete", "Insights partially available");
+      }
+
       // Step 2: Reading Code
       onProgress("reading", "running", `Reading ${filePaths.length} important files...`);
       const filesResult = await this.archestra.callTool("read_files", { repoUrl, filePaths });
@@ -63,6 +79,7 @@ export class Orchestrator {
         analysis,
         codeSummaries: chunks,
         signatures,
+        insights,
         userPrompt
       });
       const readme = extractToolText(readmeResult);

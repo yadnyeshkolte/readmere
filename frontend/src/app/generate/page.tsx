@@ -134,7 +134,8 @@ function GenerateContent() {
 
   const [steps, setSteps] = useState<Step[]>([
     { id: 'analysis', label: 'Analyzing Repository', status: 'pending', message: 'Waiting to start...' },
-    { id: 'reading', label: 'Reading Code', status: 'pending', message: 'Waiting for analysis...' },
+    { id: 'insights', label: 'Gathering Insights', status: 'pending', message: 'Waiting for analysis...' },
+    { id: 'reading', label: 'Reading Code', status: 'pending', message: 'Waiting for insights...' },
     { id: 'generation', label: 'Generating Documentation', status: 'pending', message: 'Waiting for code...' },
     { id: 'quality', label: 'Quality Check', status: 'pending', message: 'Finalizing...' },
   ]);
