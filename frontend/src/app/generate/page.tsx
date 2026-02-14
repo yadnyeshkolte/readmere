@@ -10,7 +10,7 @@ function GenerateContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const repoUrl = searchParams.get('repo');
-  const userPrompt = searchParams.get('prompt') ? decodeURIComponent(searchParams.get('prompt')!) : '';
+  const userPrompt = searchParams.get('prompt') || '';
   const [started, setStarted] = useState(false);
   const [complete, setComplete] = useState(false);
   const [readme, setReadme] = useState('');
@@ -20,11 +20,14 @@ function GenerateContent() {
   const [improving, setImproving] = useState(false);
   const [showCategories, setShowCategories] = useState(false);
 
-  const [steps, setSteps] = useState([
-    { id: 'analysis', label: 'Analyzing Repository', status: 'pending' as const, message: 'Waiting to start...' },
-    { id: 'reading', label: 'Reading Code', status: 'pending' as const, message: 'Waiting for analysis...' },
-    { id: 'generation', label: 'Generating Documentation', status: 'pending' as const, message: 'Waiting for code...' },
-    { id: 'quality', label: 'Quality Check', status: 'pending' as const, message: 'Finalizing...' },
+  type StepStatus = 'pending' | 'running' | 'complete' | 'error';
+  interface Step { id: string; label: string; status: StepStatus; message: string; }
+
+  const [steps, setSteps] = useState<Step[]>([
+    { id: 'analysis', label: 'Analyzing Repository', status: 'pending', message: 'Waiting to start...' },
+    { id: 'reading', label: 'Reading Code', status: 'pending', message: 'Waiting for analysis...' },
+    { id: 'generation', label: 'Generating Documentation', status: 'pending', message: 'Waiting for code...' },
+    { id: 'quality', label: 'Quality Check', status: 'pending', message: 'Finalizing...' },
   ]);
 
   // Timer
@@ -299,7 +302,7 @@ function GenerateContent() {
             <p className="text-xs text-red-400 uppercase tracking-wider mb-2 font-medium">Error</p>
             <p className="text-sm text-red-300/80 leading-relaxed">{error}</p>
             <button
-              onClick={() => { setStarted(false); setError(''); setSteps(s => s.map(st => ({ ...st, status: 'pending' as const }))); setElapsed(0); }}
+              onClick={() => { setStarted(false); setError(''); setSteps(s => s.map(st => ({ ...st, status: 'pending' as StepStatus }))); setElapsed(0); }}
               className="mt-3 px-3 py-1.5 rounded-lg bg-red-900/30 border border-red-500/20 text-red-400 text-xs hover:bg-red-900/50 transition"
             >
               Retry

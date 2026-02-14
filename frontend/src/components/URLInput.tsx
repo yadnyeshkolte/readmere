@@ -18,10 +18,9 @@ export default function URLInput() {
       return;
     }
     setError('');
-    const encodedUrl = encodeURIComponent(url);
-    const params = new URLSearchParams({ repo: encodedUrl });
+    const params = new URLSearchParams({ repo: url });
     if (userPrompt.trim()) {
-      params.set('prompt', encodeURIComponent(userPrompt.trim()));
+      params.set('prompt', userPrompt.trim());
     }
     router.push(`/generate?${params.toString()}`);
   };
