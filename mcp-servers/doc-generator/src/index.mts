@@ -80,6 +80,8 @@ function createServer() {
               codeSummaries: { type: "array" },
               signatures: { type: "array", description: "Function/class signatures extracted from code" },
               insights: { type: "object", description: "Community insights: issues, PRs, contributors, releases" },
+              verifiedCommands: { type: "object", description: "Verified install/run/test commands from config files" },
+              style: { type: "string", enum: ["minimal", "standard", "detailed"], description: "Output style preset" },
               userPrompt: { type: "string", description: "Optional user instructions for README customization" },
             },
             required: ["metadata", "analysis", "codeSummaries"],
@@ -93,10 +95,54 @@ function createServer() {
     const { name, arguments: args } = request.params;
 
     if (name === "generate_readme") {
-      const { metadata, analysis, codeSummaries, signatures, insights, userPrompt } = args as any;
+      const { metadata, analysis, codeSummaries, signatures, insights, verifiedCommands, style = "standard", userPrompt } = args as any;
       const cleanAnalysis = { ...analysis, tree: undefined, fileCount: analysis.tree?.length || analysis.fileCount };
 
-      const systemPrompt = `You are a world-class technical writer who creates beautiful, comprehensive README.md files for open-source projects. You write READMEs that developers LOVE — clear, professional, and visually appealing.
+      // Style-specific system prompts and token limits
+      const stylePrompts: Record<string, { prompt: string; tokens: number }> = {
+        minimal: {
+          tokens: 1500,
+          prompt: `You are a concise technical writer. Generate a MINIMAL README.md — short, clean, and actionable.
+
+Include ONLY these sections:
+1. **Title & Badges** — H1 + key shields.io badges
+2. **Description** — 1-2 sentences
+3. **Quick Start** — Install + run commands ONLY (use verified commands if provided)
+4. **Usage** — One simple code example
+5. **License**
+
+Rules:
+- Return ONLY raw Markdown, no wrapping backticks
+- Be extremely concise — no filler text
+- Use verified commands exactly as provided when available
+- Maximum ~150 lines total`
+        },
+        standard: {
+          tokens: 3000,
+          prompt: `You are a world-class technical writer who creates beautiful, comprehensive README.md files. You write READMEs that developers LOVE — clear, professional, and visually appealing.
+
+Include these sections:
+1. **Title & Badges** — H1 + shields.io badges
+2. **Description** — 2-3 sentences
+3. **Features** — Bullet list with emoji icons
+4. **Tech Stack** — Technologies used
+5. **Quick Start** — Prerequisites + install + run. Use verified commands if provided.
+6. **Usage** — Code examples from actual source
+7. **API Reference** — If applicable
+8. **Configuration** — Env vars, config files
+9. **Contributing** — Mention top contributors if available
+10. **License**
+11. **Recent Activity** — If release/PR data provided
+
+Rules:
+- Return ONLY raw Markdown, no wrapping backticks
+- Use verified commands instead of guessing when available
+- Include REAL code examples based on actual source code
+- Be thorough but concise`
+        },
+        detailed: {
+          tokens: 4000,
+          prompt: `You are a world-class technical writer who creates beautiful, comprehensive README.md files for open-source projects. You write READMEs that developers LOVE — clear, professional, and visually appealing.
 
 Your README MUST include ALL of the following sections (skip only if truly irrelevant):
 
@@ -105,24 +151,30 @@ Your README MUST include ALL of the following sections (skip only if truly irrel
 3. **Features** — Bullet list of key features with emoji icons
 4. **Tech Stack** — Table or badge list of technologies used
 5. **Project Structure** — File tree showing key directories (use code block)
-6. **Getting Started** — Prerequisites, installation steps, environment setup
+6. **Getting Started** — Prerequisites, installation steps, environment setup. USE VERIFIED COMMANDS when provided.
 7. **Usage** — Code examples showing how to use the project (with syntax-highlighted code blocks)
 8. **API Reference** — If applicable, document key endpoints/functions with parameters and return types
 9. **Configuration** — Environment variables, config files
 10. **Contributing** — How to contribute, coding standards, mention top contributors if available
 11. **License** — License type
-12. **Changelog / Recent Activity** — If release or PR data is provided, include a brief changelog or "What's New" section highlighting recent merged PRs or releases
-13. **Known Issues / Roadmap** — If open issues data is provided, mention notable known issues or areas of active development
-14. **Community & Support** — If community health data is available, mention contributing guidelines, code of conduct, wiki, discussions
+12. **Changelog / Recent Activity** — If release or PR data is provided, include a changelog section
+13. **Known Issues / Roadmap** — If open issues data is provided, mention notable known issues
+14. **Community & Support** — If community health data is available, mention contributing guidelines, code of conduct
 
 Rules:
 - Return ONLY raw Markdown, no wrapping backticks or explanations
 - Use proper Markdown formatting: headers, code blocks with language tags, tables, bullet lists
 - Include REAL code examples based on the actual source code provided
-- Make installation instructions specific to the tech stack detected
-- Be thorough but concise — every section should add value
+- Use verified commands exactly as provided instead of guessing
+- Be thorough — every section should add value
 - When contributor data is available, acknowledge top contributors
-- When issue/PR data is available, use it to show project activity and health`;
+- When issue/PR data is available, use it to show project activity and health`
+        }
+      };
+
+      const styleConfig = stylePrompts[style] || stylePrompts.standard;
+      const systemPrompt = styleConfig.prompt;
+      const maxTokens = styleConfig.tokens;
 
       let userContent = `## Repository Information
 
@@ -141,6 +193,14 @@ ${JSON.stringify(codeSummaries, null, 2).substring(0, 15000)}`;
 
       if (signatures && signatures.length > 0) {
         userContent += `\n\n**Function/Class Signatures:**\n${JSON.stringify(signatures, null, 2).substring(0, 3000)}`;
+      }
+
+      // Verified commands — high trust section
+      if (verifiedCommands && Object.keys(verifiedCommands).length > 0) {
+        userContent += `\n\n**⚠️ VERIFIED COMMANDS (use these exactly — extracted from actual config files):**`;
+        for (const [category, cmds] of Object.entries(verifiedCommands)) {
+          userContent += `\n${category}: ${JSON.stringify(cmds)}`;
+        }
       }
 
       if (insights && Object.keys(insights).length > 0) {
@@ -175,7 +235,7 @@ ${JSON.stringify(codeSummaries, null, 2).substring(0, 15000)}`;
       const readme = await callGroq([
         { role: "system", content: systemPrompt },
         { role: "user", content: userContent }
-      ], 4000);
+      ], maxTokens);
 
       return {
         content: [{ type: "text", text: readme }],

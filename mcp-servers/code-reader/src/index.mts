@@ -94,6 +94,26 @@ function createServer() {
             required: ["files"],
           },
         },
+        {
+          name: "extract_commands",
+          description: "Extracts verified install/run/test/build commands from project config files",
+          inputSchema: {
+            type: "object",
+            properties: {
+              files: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    path: { type: "string" },
+                    content: { type: "string" }
+                  }
+                }
+              }
+            },
+            required: ["files"],
+          },
+        },
       ],
     };
   });
@@ -178,6 +198,128 @@ function createServer() {
       }
       return {
         content: [{ type: "text", text: JSON.stringify(chunkedFiles, null, 2) }],
+      };
+    }
+
+    if (name === "extract_commands") {
+      const { files } = args as { files: { path: string, content: string }[] };
+      const commands: Record<string, string[]> = {
+        install: [],
+        run: [],
+        test: [],
+        build: [],
+        lint: [],
+        other: [],
+      };
+
+      for (const file of files) {
+        const fileName = file.path.split('/').pop()?.toLowerCase() || '';
+
+        // package.json — extract npm scripts
+        if (fileName === 'package.json') {
+          try {
+            const pkg = JSON.parse(file.content);
+            if (pkg.scripts) {
+              for (const [key, val] of Object.entries(pkg.scripts)) {
+                const cmd = `npm run ${key}`;
+                if (['start', 'serve', 'dev'].includes(key)) commands.run.push(cmd);
+                else if (['test', 'test:unit', 'test:e2e', 'test:watch'].includes(key)) commands.test.push(cmd);
+                else if (['build', 'compile'].includes(key)) commands.build.push(cmd);
+                else if (['lint', 'format', 'prettier'].includes(key)) commands.lint.push(cmd);
+                else commands.other.push(cmd);
+              }
+            }
+            // Detect package manager
+            commands.install.push(pkg.packageManager?.startsWith('yarn') ? 'yarn install' :
+              pkg.packageManager?.startsWith('pnpm') ? 'pnpm install' : 'npm install');
+          } catch { }
+        }
+
+        // Makefile — extract targets
+        if (fileName === 'makefile') {
+          const targets = file.content.match(/^([a-zA-Z_-]+)\s*:/gm);
+          if (targets) {
+            for (const t of targets) {
+              const target = t.replace(':', '').trim();
+              if (['all', '.PHONY', '.DEFAULT'].includes(target)) continue;
+              const cmd = `make ${target}`;
+              if (['install', 'setup', 'deps'].includes(target)) commands.install.push(cmd);
+              else if (['run', 'start', 'serve', 'dev'].includes(target)) commands.run.push(cmd);
+              else if (['test', 'check'].includes(target)) commands.test.push(cmd);
+              else if (['build', 'compile', 'release'].includes(target)) commands.build.push(cmd);
+              else if (['lint', 'fmt', 'format'].includes(target)) commands.lint.push(cmd);
+              else commands.other.push(cmd);
+            }
+          }
+        }
+
+        // Dockerfile — extract CMD and EXPOSE
+        if (fileName === 'dockerfile') {
+          const cmdMatch = file.content.match(/^(CMD|ENTRYPOINT)\s+(.+)$/m);
+          if (cmdMatch) commands.run.push(`docker run <image> (${cmdMatch[2].trim()})`);
+          commands.build.push('docker build -t <image-name> .');
+          commands.run.push('docker run -p <port>:<port> <image-name>');
+        }
+
+        // docker-compose.yml
+        if (fileName === 'docker-compose.yml' || fileName === 'docker-compose.yaml' || fileName === 'compose.yml') {
+          commands.run.push('docker-compose up');
+          commands.build.push('docker-compose build');
+        }
+
+        // requirements.txt
+        if (fileName === 'requirements.txt') {
+          commands.install.push('pip install -r requirements.txt');
+        }
+
+        // setup.py / pyproject.toml
+        if (fileName === 'setup.py') {
+          commands.install.push('pip install -e .');
+        }
+        if (fileName === 'pyproject.toml') {
+          if (file.content.includes('[tool.poetry]')) {
+            commands.install.push('poetry install');
+            commands.run.push('poetry run python -m <module>');
+          } else {
+            commands.install.push('pip install -e .');
+          }
+        }
+
+        // Cargo.toml
+        if (fileName === 'cargo.toml') {
+          commands.install.push('cargo build');
+          commands.run.push('cargo run');
+          commands.test.push('cargo test');
+          commands.build.push('cargo build --release');
+        }
+
+        // go.mod
+        if (fileName === 'go.mod') {
+          commands.install.push('go mod download');
+          commands.run.push('go run .');
+          commands.test.push('go test ./...');
+          commands.build.push('go build -o <binary> .');
+        }
+
+        // Gemfile
+        if (fileName === 'gemfile') {
+          commands.install.push('bundle install');
+        }
+      }
+
+      // Deduplicate
+      for (const key of Object.keys(commands)) {
+        commands[key] = [...new Set(commands[key])];
+      }
+
+      // Remove empty categories
+      const cleaned: Record<string, string[]> = {};
+      for (const [key, val] of Object.entries(commands)) {
+        if (val.length > 0) cleaned[key] = val;
+      }
+
+      return {
+        content: [{ type: "text", text: JSON.stringify(cleaned, null, 2) }],
       };
     }
 
