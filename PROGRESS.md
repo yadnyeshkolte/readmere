@@ -99,6 +99,14 @@ User → Frontend (Next.js) → Backend API (Express, port 7860)
 - [x] Auto-enhancement when score < 80
 - [x] Community insights injected into LLM prompt (issues, PRs, contributors, releases, community health)
 
+### User Experience & Generation 2.0
+- [x] **Diff View**: Visual comparison between original and generated READMEs
+- [x] **Verified Commands**: Auto-extraction of run/install/test commands from config files (package.json, Makefile, etc.)
+- [x] **One-Click PR**: Create a GitHub PR with the new README directly from the UI
+- [x] **3 Output Styles**: Minimal, Standard, and Detailed styles
+- [x] **Fast Fallback**: Analysis failure fallback
+- [x] **Smart Improvement**: Custom prompts + Diff visualization
+
 ### Repository Insights
 - [x] `get_repo_insights` MCP tool fetching 5 data categories in parallel
 - [x] Recent open issues (top 10, with labels and comment counts)

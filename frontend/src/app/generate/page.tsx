@@ -4,6 +4,7 @@ import { useEffect, useState, Suspense, useCallback } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import ProgressTracker from '@/components/ProgressTracker';
 import ReadmePreview from '@/components/ReadmePreview';
+import DiffView from '@/components/DiffView';
 import Link from 'next/link';
 
 // Confetti component — CSS-only, no external deps
@@ -110,16 +111,118 @@ function ReadmeStats({ content }: { content: string }) {
   );
 }
 
+// PR Modal
+function PRModal({ show, onClose, repoUrl, readme }: { show: boolean; onClose: () => void; repoUrl: string; readme: string }) {
+  const [token, setToken] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState<{ prUrl: string; prNumber: number } | null>(null);
+  const [error, setError] = useState('');
+
+  if (!show) return null;
+
+  const handleCreate = async () => {
+    if (!token.trim()) {
+      setError('Please enter a GitHub token with repo write access');
+      return;
+    }
+    setLoading(true);
+    setError('');
+    try {
+      const resp = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/generate/create-pr`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ repoUrl, readme, githubToken: token }),
+      });
+      const data = await resp.json();
+      if (!resp.ok) throw new Error(data.error || 'Failed to create PR');
+      setResult(data);
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="glass rounded-2xl p-6 max-w-md w-full space-y-4 animate-fade-in-up" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between">
+          <h3 className="text-white font-semibold text-sm">Create Pull Request</h3>
+          <button onClick={onClose} className="text-zinc-500 hover:text-zinc-300 transition">✕</button>
+        </div>
+
+        {result ? (
+          <div className="space-y-3">
+            <div className="flex items-center gap-2 text-emerald-400 text-sm">
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+              PR #{result.prNumber} created!
+            </div>
+            <a
+              href={result.prUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="block w-full py-2.5 rounded-lg text-center text-sm font-medium bg-gradient-to-r from-emerald-600 to-cyan-600 text-white hover:from-emerald-500 hover:to-cyan-500 transition-all"
+            >
+              Open PR on GitHub →
+            </a>
+          </div>
+        ) : (
+          <>
+            <p className="text-xs text-zinc-400 leading-relaxed">
+              Enter a GitHub Personal Access Token with <code className="text-emerald-400 bg-emerald-950/30 px-1 rounded">repo</code> scope to create a PR with the generated README.
+            </p>
+
+            <input
+              type="password"
+              placeholder="ghp_xxxxxxxxxxxxxxxxxxxx"
+              value={token}
+              onChange={e => { setToken(e.target.value); setError(''); }}
+              className="w-full px-4 py-3 rounded-xl bg-zinc-900 border border-zinc-700/50 text-white placeholder-zinc-600 focus:outline-none focus:border-emerald-500/50 transition-all text-sm font-mono"
+            />
+
+            {error && <p className="text-red-400 text-xs">{error}</p>}
+
+            <p className="text-[10px] text-zinc-600 leading-relaxed">
+              Your token is only used for this request and is not stored. It&apos;s sent directly to GitHub&apos;s API.
+            </p>
+
+            <button
+              onClick={handleCreate}
+              disabled={loading || !token.trim()}
+              className="w-full py-2.5 rounded-lg text-sm font-medium transition-all duration-300 border
+                bg-emerald-950/30 border-emerald-500/20 text-emerald-400 hover:bg-emerald-900/40 hover:border-emerald-500/40
+                disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {loading ? (
+                <span className="flex items-center justify-center gap-2">
+                  <svg className="animate-spin h-3.5 w-3.5" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                  </svg>
+                  Creating PR...
+                </span>
+              ) : '🚀 Create PR'}
+            </button>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function GenerateContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const repoUrl = searchParams.get('repo');
   const userPrompt = searchParams.get('prompt') || '';
+  const style = searchParams.get('style') || 'standard';
   const [started, setStarted] = useState(false);
   const [complete, setComplete] = useState(false);
   const [readme, setReadme] = useState('');
   const [quality, setQuality] = useState<any>(null);
   const [metadata, setMetadata] = useState<any>(null);
+  const [originalReadme, setOriginalReadme] = useState('');
+  const [previousReadme, setPreviousReadme] = useState('');
   const [error, setError] = useState('');
   const [elapsed, setElapsed] = useState(0);
   const [improving, setImproving] = useState(false);
@@ -128,6 +231,8 @@ function GenerateContent() {
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'info' } | null>(null);
   const [improvePrompt, setImprovePrompt] = useState('');
   const [showImproveInput, setShowImproveInput] = useState(false);
+  const [viewMode, setViewMode] = useState<'preview' | 'diff' | 'improve-diff'>('preview');
+  const [showPRModal, setShowPRModal] = useState(false);
 
   type StepStatus = 'pending' | 'running' | 'complete' | 'error';
   interface Step { id: string; label: string; status: StepStatus; message: string; }
@@ -170,7 +275,7 @@ function GenerateContent() {
       setError('');
 
       try {
-        const body: any = { repoUrl };
+        const body: any = { repoUrl, style };
         if (userPrompt) body.userPrompt = userPrompt;
 
         const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/generate`, {
@@ -217,6 +322,9 @@ function GenerateContent() {
                     setReadme(data.readme);
                     setQuality(data.quality);
                     setMetadata(data.metadata);
+                    if (data.originalReadme) {
+                      setOriginalReadme(data.originalReadme);
+                    }
                     setComplete(true);
                     setSteps(prev => prev.map(s => ({ ...s, status: 'complete' })));
 
@@ -250,16 +358,17 @@ function GenerateContent() {
   const handleImprove = async () => {
     if (!readme || improving) return;
     setImproving(true);
+    setPreviousReadme(readme); // Save for diff
 
     try {
-      let suggestions = quality?.suggestions?.join(', ') || 'Improve overall quality';
-      if (improvePrompt.trim()) {
-        suggestions = `User instructions: ${improvePrompt.trim()}. Also: ${suggestions}`;
-      }
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/generate/improve`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ readme, suggestions }),
+        body: JSON.stringify({
+          readme,
+          suggestions: quality?.suggestions?.join(', ') || 'Improve overall quality',
+          customPrompt: improvePrompt.trim() || undefined,
+        }),
       });
 
       if (!response.ok) throw new Error('Improve request failed');
@@ -267,6 +376,7 @@ function GenerateContent() {
       const result = await response.json();
       setReadme(result.readme);
       setQuality(result.quality);
+      setViewMode('improve-diff'); // Auto-switch to diff view
 
       if (result.quality?.score >= 70) {
         setShowConfetti(true);
@@ -318,12 +428,23 @@ function GenerateContent() {
       {/* Toast */}
       {toast && <Toast message={toast.message} show={true} type={toast.type} />}
 
+      {/* PR Modal */}
+      {repoUrl && <PRModal show={showPRModal} onClose={() => setShowPRModal(false)} repoUrl={repoUrl} readme={readme} />}
+
       {/* Left Panel */}
       <div className="w-full lg:w-[360px] space-y-5 shrink-0">
         {/* Repo info */}
         <div className="glass rounded-2xl p-5">
           <p className="text-xs text-zinc-500 uppercase tracking-wider mb-1.5">Resurrecting</p>
           <p className="text-white font-semibold text-sm truncate">{repoName}</p>
+          <div className="flex items-center gap-2 mt-1">
+            <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${style === 'minimal' ? 'bg-blue-950/50 text-blue-400 border border-blue-500/20' :
+                style === 'detailed' ? 'bg-purple-950/50 text-purple-400 border border-purple-500/20' :
+                  'bg-emerald-950/50 text-emerald-400 border border-emerald-500/20'
+              }`}>
+              {style.charAt(0).toUpperCase() + style.slice(1)}
+            </span>
+          </div>
           {userPrompt && (
             <p className="text-xs text-emerald-400/60 mt-1 truncate" title={userPrompt}>
               ✨ Custom: {userPrompt}
@@ -503,6 +624,27 @@ function GenerateContent() {
           </div>
         )}
 
+        {/* Action Buttons */}
+        {complete && readme && (
+          <div className="space-y-2 animate-fade-in-up">
+            <button
+              onClick={() => setShowPRModal(true)}
+              className="w-full py-2.5 rounded-xl text-xs font-medium transition-all duration-300 border
+                bg-gradient-to-r from-emerald-950/30 to-cyan-950/30 border-emerald-500/20 text-emerald-400
+                hover:from-emerald-900/40 hover:to-cyan-900/40 hover:border-emerald-500/40
+                flex items-center justify-center gap-2"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="18" cy="18" r="3" />
+                <circle cx="6" cy="6" r="3" />
+                <path d="M13 6h3a2 2 0 0 1 2 2v7" />
+                <line x1="6" y1="9" x2="6" y2="21" />
+              </svg>
+              Create PR on GitHub
+            </button>
+          </div>
+        )}
+
         {error && (
           <div className="rounded-2xl p-5 bg-red-950/30 border border-red-500/20 animate-fade-in">
             <p className="text-xs text-red-400 uppercase tracking-wider mb-2 font-medium">Error</p>
@@ -517,10 +659,70 @@ function GenerateContent() {
         )}
       </div>
 
-      {/* Right Panel - Preview */}
+      {/* Right Panel - Preview / Diff */}
       <div className="w-full lg:flex-1 min-w-0">
         {readme ? (
-          <ReadmePreview content={readme} onCopy={() => showToast('Copied to clipboard! 📋')} />
+          <div className="space-y-0">
+            {/* View Mode Tabs */}
+            <div className="flex items-center gap-1 mb-3">
+              <button
+                onClick={() => setViewMode('preview')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${viewMode === 'preview'
+                    ? 'bg-emerald-600/20 text-emerald-400 border border-emerald-500/30'
+                    : 'text-zinc-500 hover:text-zinc-300 border border-transparent'
+                  }`}
+              >
+                📄 Preview
+              </button>
+              {originalReadme && (
+                <button
+                  onClick={() => setViewMode('diff')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${viewMode === 'diff'
+                      ? 'bg-orange-600/20 text-orange-400 border border-orange-500/30'
+                      : 'text-zinc-500 hover:text-zinc-300 border border-transparent'
+                    }`}
+                >
+                  ⚡ Diff vs Original
+                </button>
+              )}
+              {previousReadme && (
+                <button
+                  onClick={() => setViewMode('improve-diff')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${viewMode === 'improve-diff'
+                      ? 'bg-purple-600/20 text-purple-400 border border-purple-500/30'
+                      : 'text-zinc-500 hover:text-zinc-300 border border-transparent'
+                    }`}
+                >
+                  🔄 Improvement Diff
+                </button>
+              )}
+            </div>
+
+            {/* Content */}
+            {viewMode === 'preview' && (
+              <ReadmePreview content={readme} onCopy={() => showToast('Copied to clipboard! 📋')} />
+            )}
+            {viewMode === 'diff' && originalReadme && (
+              <div className="glass rounded-2xl p-5 overflow-auto max-h-[800px]">
+                <DiffView
+                  oldText={originalReadme}
+                  newText={readme}
+                  oldLabel="Original README"
+                  newLabel="Generated README"
+                />
+              </div>
+            )}
+            {viewMode === 'improve-diff' && previousReadme && (
+              <div className="glass rounded-2xl p-5 overflow-auto max-h-[800px]">
+                <DiffView
+                  oldText={previousReadme}
+                  newText={readme}
+                  oldLabel="Before Improvement"
+                  newLabel="After Improvement"
+                />
+              </div>
+            )}
+          </div>
         ) : (
           <div className="h-[700px] border border-dashed border-zinc-800/50 rounded-2xl flex items-center justify-center bg-zinc-950/30">
             <div className="text-center space-y-4">

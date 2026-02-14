@@ -3,12 +3,19 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 
+const STYLE_OPTIONS = [
+  { id: 'minimal', label: 'Minimal', desc: '~5 sections, concise' },
+  { id: 'standard', label: 'Standard', desc: '~11 sections, balanced' },
+  { id: 'detailed', label: 'Detailed', desc: '~14 sections, comprehensive' },
+];
+
 export default function URLInput() {
   const [url, setUrl] = useState('');
   const [error, setError] = useState('');
   const [isFocused, setIsFocused] = useState(false);
   const [showPrompt, setShowPrompt] = useState(false);
   const [userPrompt, setUserPrompt] = useState('');
+  const [style, setStyle] = useState('standard');
   const router = useRouter();
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -18,7 +25,7 @@ export default function URLInput() {
       return;
     }
     setError('');
-    const params = new URLSearchParams({ repo: url });
+    const params = new URLSearchParams({ repo: url, style });
     if (userPrompt.trim()) {
       params.set('prompt', userPrompt.trim());
     }
@@ -51,6 +58,24 @@ export default function URLInput() {
           <span className="mr-1">⚠</span>{error}
         </p>
       )}
+
+      {/* Output Style Selector */}
+      <div className="flex items-center gap-2">
+        {STYLE_OPTIONS.map((opt) => (
+          <button
+            key={opt.id}
+            type="button"
+            onClick={() => setStyle(opt.id)}
+            className={`flex-1 py-2 px-3 rounded-lg text-xs font-medium transition-all duration-200 border ${style === opt.id
+                ? 'bg-emerald-600/20 border-emerald-500/50 text-emerald-400'
+                : 'bg-zinc-900/50 border-zinc-700/30 text-zinc-500 hover:border-zinc-600 hover:text-zinc-400'
+              }`}
+          >
+            <div className="font-semibold">{opt.label}</div>
+            <div className="text-[10px] opacity-70 mt-0.5">{opt.desc}</div>
+          </button>
+        ))}
+      </div>
 
       {/* Custom Instructions Toggle */}
       <button
