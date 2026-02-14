@@ -10,6 +10,7 @@ import cors from "cors";
 import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
+  CallToolResult,
 } from "@modelcontextprotocol/sdk/types.js";
 
 const GROQ_API_KEY = process.env.GROQ_API_KEY;
@@ -35,8 +36,7 @@ async function callGroq(messages: any[], maxTokens: number = 4000) {
       });
 
       if (response.status === 429) {
-        const retryAfter = 2; // Default to 2s
-        console.warn(`Rate limited. Retrying in ${retryAfter}s...`);
+        const retryAfter = 2;
         await new Promise(resolve => setTimeout(resolve, retryAfter * 1000));
         continue;
       }
@@ -46,7 +46,7 @@ async function callGroq(messages: any[], maxTokens: number = 4000) {
         throw new Error(`Groq API Error: ${err}`);
       }
 
-      const data = await response.json();
+      const data: any = await response.json();
       return data.choices[0].message.content;
     } catch (e: any) {
       lastError = e;
@@ -60,161 +60,115 @@ async function callGroq(messages: any[], maxTokens: number = 4000) {
   throw lastError;
 }
 
-const server = new Server(
-  {
-    name: "doc-generator",
-    version: "1.0.0",
-  },
-  {
-    capabilities: {
-      tools: {},
-    },
-  }
-);
+function createServer() {
+  const server = new Server(
+    { name: "doc-generator", version: "1.0.0" },
+    { capabilities: { tools: {} } }
+  );
 
-server.setRequestHandler(ListToolsRequestSchema, async () => {
-  return {
-    tools: [
-      {
-        name: "generate_readme",
-        description: "Generates a comprehensive README.md using Groq LLM",
-        inputSchema: {
-          type: "object",
-          properties: {
-            metadata: { type: "object" },
-            analysis: { type: "object" },
-            codeSummaries: { type: "array" },
+  server.setRequestHandler(ListToolsRequestSchema, async () => {
+    return {
+      tools: [
+        {
+          name: "generate_readme",
+          description: "Generates a comprehensive README.md using Groq LLM",
+          inputSchema: {
+            type: "object",
+            properties: {
+              metadata: { type: "object" },
+              analysis: { type: "object" },
+              codeSummaries: { type: "array" },
+            },
+            required: ["metadata", "analysis", "codeSummaries"],
           },
-          required: ["metadata", "analysis", "codeSummaries"],
         },
-      },
-      {
-        name: "validate_readme",
-        description: "Validates a generated README for quality and completeness",
-        inputSchema: {
-          type: "object",
-          properties: {
-            readme: { type: "string" },
+        {
+          name: "validate_readme",
+          description: "Validates a generated README for quality and completeness",
+          inputSchema: {
+            type: "object",
+            properties: {
+              readme: { type: "string" },
+            },
+            required: ["readme"],
           },
-          required: ["readme"],
         },
-      },
-      {
-        name: "enhance_readme",
-        description: "Enhances specific sections of a README based on suggestions",
-        inputSchema: {
-          type: "object",
-          properties: {
-            readme: { type: "string" },
-            suggestions: { type: "string" },
+        {
+          name: "enhance_readme",
+          description: "Enhances specific sections of a README based on suggestions",
+          inputSchema: {
+            type: "object",
+            properties: {
+              readme: { type: "string" },
+              suggestions: { type: "string" },
+            },
+            required: ["readme", "suggestions"],
           },
-          required: ["readme", "suggestions"],
         },
-      },
-    ],
-  };
-});
-
-server.setRequestHandler(CallToolRequestSchema, async (request) => {
-  const { name, arguments: args } = request.params;
-
-  if (name === "generate_readme") {
-    const { metadata, analysis, codeSummaries } = args as any;
-
-    // CRITICAL: Truncate analysis to remove the full file tree (thousands of lines)
-    // and only keep the summary statistics.
-    const cleanAnalysis = {
-      ...analysis,
-      tree: undefined, // Remove the massive array
-      fileCount: analysis.tree?.length || analysis.fileCount
+      ],
     };
+  });
 
-    const systemPrompt = `You are an expert technical writer specializing in open-source documentation. 
-    Your goal is to generate a high-quality, professional, and visually appealing README.md.
-    
-    Strictly follow this structure and formatting:
-    1.  **Header**: Project Name as H1, followed by a catchy one-line description.
-    2.  **Badges**: Include relevant shields.io badges (License, Repo Size, Stars, Language, etc.).
-    3.  **Table of Contents**: A linked list for easy navigation.
-    4.  **Description**: A deep dive into "What" and "Why".
-    5.  **Key Features**: Use a clean list with emojis.
-    6.  **Architecture**: Briefly explain the project structure based on the analysis.
-    7.  **Tech Stack**: Use a table or a clear list with icons/tags.
-    8.  **Getting Started**: Prerequisites, Installation, and Basic Usage.
-    9.  **Configuration**: Table of environment variables or config options.
-    10. **Contributing** & **License**.
+  server.setRequestHandler(CallToolRequestSchema, async (request): Promise<CallToolResult> => {
+    const { name, arguments: args } = request.params;
 
-    Formatting Rules:
-    - Use H1 (#) only for the title.
-    - Ensure all code blocks have the correct language identifier.
-    - DO NOT include conversational filler.
-    - Return ONLY the raw Markdown content.`;
+    if (name === "generate_readme") {
+      const { metadata, analysis, codeSummaries } = args as any;
+      const cleanAnalysis = { ...analysis, tree: undefined, fileCount: analysis.tree?.length || analysis.fileCount };
 
-    const userPrompt = `
+      const systemPrompt = `You are an expert technical writer specializing in open-source documentation. 
+    Return ONLY the raw Markdown content.`;
+
+      const userPrompt = `
     Repo Metadata: ${JSON.stringify(metadata).substring(0, 1000)}
     Repo Analysis Summary: ${JSON.stringify(cleanAnalysis).substring(0, 2000)}
     Key Code Chunks: ${JSON.stringify(codeSummaries).substring(0, 10000)}
-    
     Generate the full README.md now. Return ONLY markdown.`;
 
-    const readme = await callGroq([
-      { role: "system", content: systemPrompt },
-      { role: "user", content: userPrompt }
-    ], 2500);
+      const readme = await callGroq([
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt }
+      ], 2500);
 
-    return {
-      content: [{ type: "text", text: readme }],
-    };
-  }
+      return {
+        content: [{ type: "text", text: readme }],
+      };
+    }
 
-  if (name === "validate_readme") {
-    const { readme } = args as { readme: string };
+    if (name === "validate_readme") {
+      const { readme } = args as { readme: string };
+      const prompt = `Analyze README and provide score/suggestions. JSON: { "score": number, "suggestions": ["string"] }\n\nREADME:\n${readme.substring(0, 10000)}`;
+      const validation = await callGroq([
+        { role: "system", content: "You are a documentation QA specialist. Return ONLY JSON." },
+        { role: "user", content: prompt }
+      ]);
+      return {
+        content: [{ type: "text", text: validation }],
+      };
+    }
 
-    const prompt = `Analyze the following README.md and provide a quality score (0-100) and specific suggestions for improvement.
-    Check for: Title, Install steps, Usage, Code blocks, Badges.
-    
-    Return JSON format: { "score": number, "suggestions": ["string"] }
-    
-    README:
-    ${readme.substring(0, 10000)}...`;
+    if (name === "enhance_readme") {
+      const { readme, suggestions } = args as { readme: string, suggestions: string };
+      const prompt = `Improve README based on: ${suggestions}\n\nOriginal README:\n${readme.substring(0, 15000)}`;
+      const improved = await callGroq([
+        { role: "system", content: "You are an expert technical writer. Improve the README." },
+        { role: "user", content: prompt }
+      ], 3000);
+      return {
+        content: [{ type: "text", text: improved }],
+      };
+    }
 
-    const validation = await callGroq([
-      { role: "system", content: "You are a documentation QA specialist. Return ONLY JSON." },
-      { role: "user", content: prompt }
-    ]);
+    throw new Error(`Tool ${name} not found`);
+  });
 
-    return {
-      content: [{ type: "text", text: validation }],
-    };
-  }
-
-  if (name === "enhance_readme") {
-    const { readme, suggestions } = args as { readme: string, suggestions: string };
-
-    const prompt = `Improve the following README based on these suggestions: ${suggestions}
-    
-    Return the full improved README markdown.
-    
-    Original README:
-    ${readme.substring(0, 15000)}`;
-
-    const improved = await callGroq([
-      { role: "system", content: "You are an expert technical writer. Improve the README." },
-      { role: "user", content: prompt }
-    ], 3000);
-
-    return {
-      content: [{ type: "text", text: improved }],
-    };
-  }
-
-  throw new Error(`Tool ${name} not found`);
-});
+  return server;
+}
 
 if (process.env.PORT) {
   const app = express();
   app.use(cors());
-  app.use(express.json());
+  app.use(express.json({ limit: '50mb' }));
 
   const transports: Record<string, StreamableHTTPServerTransport | SSEServerTransport> = {};
 
@@ -236,6 +190,7 @@ if (process.env.PORT) {
         const sid = transport.sessionId;
         if (sid) delete transports[sid];
       };
+      const server = createServer();
       await server.connect(transport);
     } else {
       res.status(400).json({ jsonrpc: "2.0", error: { code: -32000, message: "Bad Request: No valid session" }, id: null });
@@ -249,6 +204,7 @@ if (process.env.PORT) {
     const transport = new SSEServerTransport("/messages", res);
     transports[transport.sessionId] = transport;
     res.on("close", () => { delete transports[transport.sessionId]; });
+    const server = createServer();
     await server.connect(transport);
   });
 
@@ -267,6 +223,7 @@ if (process.env.PORT) {
     console.log(`Doc Generator MCP running on port ${port} (SSE + Streamable HTTP)`);
   });
 } else {
+  const server = createServer();
   const transport = new StdioServerTransport();
   await server.connect(transport);
 }

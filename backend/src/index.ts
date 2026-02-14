@@ -9,24 +9,23 @@ const PORT = process.env.PORT || 8080;
 app.use(cors());
 
 // IMPORTANT: Proxy must come BEFORE express.json() for the MCP agents
-// This ensures that the raw POST bodies from Archestra reach the agents untouched
-app.use('/mcp/analyzer', createProxyMiddleware({ 
-    target: 'http://localhost:3002', 
-    pathRewrite: { '^/mcp/analyzer': '' },
-    changeOrigin: true 
+app.use('/mcp/analyzer', createProxyMiddleware({
+  target: 'http://localhost:3002',
+  pathRewrite: { '^/mcp/analyzer': '' },
+  changeOrigin: true
 }));
-app.use('/mcp/reader', createProxyMiddleware({ 
-    target: 'http://localhost:3003', 
-    pathRewrite: { '^/mcp/reader': '' },
-    changeOrigin: true 
+app.use('/mcp/reader', createProxyMiddleware({
+  target: 'http://localhost:3003',
+  pathRewrite: { '^/mcp/reader': '' },
+  changeOrigin: true
 }));
-app.use('/mcp/generator', createProxyMiddleware({ 
-    target: 'http://localhost:3004', 
-    pathRewrite: { '^/mcp/generator': '' },
-    changeOrigin: true 
+app.use('/mcp/generator', createProxyMiddleware({
+  target: 'http://localhost:3004',
+  pathRewrite: { '^/mcp/generator': '' },
+  changeOrigin: true
 }));
 
-app.use(express.json());
+app.use(express.json({ limit: '50mb' }));
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
