@@ -117,6 +117,14 @@ function PRModal({ show, onClose, repoUrl, readme }: { show: boolean; onClose: (
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<{ prUrl: string; prNumber: number } | null>(null);
   const [error, setError] = useState('');
+  const [showGuide, setShowGuide] = useState(false);
+
+  useEffect(() => {
+    if (show) {
+      document.body.style.overflow = 'hidden';
+      return () => { document.body.style.overflow = ''; };
+    }
+  }, [show]);
 
   if (!show) return null;
 
@@ -172,6 +180,31 @@ function PRModal({ show, onClose, repoUrl, readme }: { show: boolean; onClose: (
               Enter a GitHub Personal Access Token with <code className="text-emerald-400 bg-emerald-950/30 px-1 rounded">repo</code> scope to create a PR with the generated README.
             </p>
 
+            <button
+              type="button"
+              onClick={() => setShowGuide(!showGuide)}
+              className="flex items-center gap-1.5 text-[11px] text-zinc-500 hover:text-emerald-400 transition-colors w-full"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={`transition-transform ${showGuide ? 'rotate-90' : ''}`}>
+                <polyline points="9 18 15 12 9 6" />
+              </svg>
+              How to get a GitHub Personal Access Token
+            </button>
+
+            {showGuide && (
+              <div className="animate-fade-in rounded-lg bg-zinc-900/80 border border-zinc-700/40 p-3 space-y-2 text-[11px] text-zinc-400">
+                <ol className="list-decimal list-inside space-y-1.5">
+                  <li>Go to <a href="https://github.com/settings/tokens" target="_blank" rel="noopener noreferrer" className="text-emerald-400 hover:underline">GitHub &rarr; Settings &rarr; Developer Settings &rarr; Personal Access Tokens</a></li>
+                  <li>Click <span className="text-white font-medium">&quot;Generate new token (classic)&quot;</span></li>
+                  <li>Give it a name like <code className="text-emerald-400 bg-emerald-950/30 px-1 rounded">README Resurrector</code></li>
+                  <li>Under scopes, check <code className="text-emerald-400 bg-emerald-950/30 px-1 rounded">repo</code> (Full control of private repositories)</li>
+                  <li>Click <span className="text-white font-medium">&quot;Generate token&quot;</span> at the bottom</li>
+                  <li>Copy the token (starts with <code className="text-emerald-400 bg-emerald-950/30 px-1 rounded">ghp_</code>) and paste it below</li>
+                </ol>
+                <p className="text-zinc-600 text-[10px] mt-1">⚠️ Make sure to copy the token immediately &mdash; GitHub only shows it once!</p>
+              </div>
+            )}
+
             <input
               type="password"
               placeholder="ghp_xxxxxxxxxxxxxxxxxxxx"
@@ -182,9 +215,10 @@ function PRModal({ show, onClose, repoUrl, readme }: { show: boolean; onClose: (
 
             {error && <p className="text-red-400 text-xs">{error}</p>}
 
-            <p className="text-[10px] text-zinc-600 leading-relaxed">
-              Your token is only used for this request and is not stored. It&apos;s sent directly to GitHub&apos;s API.
-            </p>
+            <div className="flex items-start gap-1.5 text-[10px] text-zinc-500 bg-zinc-900/50 rounded-lg px-3 py-2">
+              <span className="text-zinc-600 mt-0.5">🔒</span>
+              <span>Your token is only used for this request and is never stored. It&apos;s sent directly to GitHub&apos;s API over HTTPS.</span>
+            </div>
 
             <button
               onClick={handleCreate}
@@ -267,8 +301,41 @@ function GenerateContent() {
     }));
   };
 
+  // Persist state to sessionStorage for navigation resilience
+  useEffect(() => {
+    if (complete && readme && repoUrl) {
+      try {
+        sessionStorage.setItem('readmere_generate_state', JSON.stringify({
+          repoUrl, readme, quality, metadata, originalReadme, previousReadme, elapsed, complete: true,
+        }));
+      } catch (e) { /* sessionStorage full */ }
+    }
+  }, [complete, readme, quality, metadata, originalReadme, previousReadme, elapsed, repoUrl]);
+
   useEffect(() => {
     if (!repoUrl || started) return;
+
+    // Restore from session storage if available (e.g. after navigating to score page and back)
+    const saved = sessionStorage.getItem('readmere_generate_state');
+    if (saved) {
+      try {
+        const data = JSON.parse(saved);
+        if (data.repoUrl === repoUrl && data.complete) {
+          setReadme(data.readme || '');
+          setQuality(data.quality || null);
+          setMetadata(data.metadata || null);
+          setOriginalReadme(data.originalReadme || '');
+          setPreviousReadme(data.previousReadme || '');
+          setElapsed(data.elapsed || 0);
+          setComplete(true);
+          setStarted(true);
+          setSteps(prev => prev.map(s => ({ ...s, status: 'complete' as StepStatus })));
+          return;
+        }
+      } catch (e) {
+        // Invalid session data, continue with generation
+      }
+    }
 
     const startGeneration = async () => {
       setStarted(true);
@@ -403,6 +470,10 @@ function GenerateContent() {
 
   const formatTime = (s: number) => `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, '0')}`;
 
+  const handleContentChange = useCallback((newContent: string) => {
+    setReadme(newContent);
+  }, []);
+
   const repoName = repoUrl ? decodeURIComponent(repoUrl).split('/').slice(-2).join('/') : '';
 
   const scoreColor = (score: number) => {
@@ -430,16 +501,13 @@ function GenerateContent() {
   }
 
   return (
+    <>
+    {/* Fixed-position elements outside animated container for proper viewport centering */}
+    {showConfetti && <Confetti />}
+    {toast && <Toast message={toast.message} show={true} type={toast.type} />}
+    {repoUrl && <PRModal show={showPRModal} onClose={() => setShowPRModal(false)} repoUrl={repoUrl} readme={readme} />}
+
     <div className="flex flex-col lg:flex-row gap-8 p-6 md:p-10 max-w-[1600px] mx-auto w-full animate-fade-in-up">
-      {/* Confetti celebration */}
-      {showConfetti && <Confetti />}
-
-      {/* Toast */}
-      {toast && <Toast message={toast.message} show={true} type={toast.type} />}
-
-      {/* PR Modal */}
-      {repoUrl && <PRModal show={showPRModal} onClose={() => setShowPRModal(false)} repoUrl={repoUrl} readme={readme} />}
-
       {/* Left Panel */}
       <div className="w-full lg:w-[360px] space-y-5 shrink-0">
         {/* Repo info */}
@@ -500,12 +568,14 @@ function GenerateContent() {
           <div className="glass rounded-2xl p-5 animate-fade-in-up">
             <div className="flex items-center justify-between mb-3">
               <p className="text-xs text-zinc-500 uppercase tracking-wider">Quality Report</p>
-              <Link
+              <a
                 href="/score"
+                target="_blank"
+                rel="noopener noreferrer"
                 className="text-[10px] text-zinc-600 hover:text-emerald-400 transition-colors underline underline-offset-2"
               >
                 How is this scored?
-              </Link>
+              </a>
             </div>
 
             {/* Circular Score */}
@@ -709,7 +779,7 @@ function GenerateContent() {
 
             {/* Content */}
             {viewMode === 'preview' && (
-              <ReadmePreview content={readme} onCopy={() => showToast('Copied to clipboard! 📋')} />
+              <ReadmePreview content={readme} onCopy={() => showToast('Copied to clipboard! 📋')} onContentChange={handleContentChange} />
             )}
             {viewMode === 'diff' && originalReadme && (
               <div className="glass rounded-2xl p-5 overflow-auto max-h-[800px]">
@@ -756,6 +826,7 @@ function GenerateContent() {
         )}
       </div>
     </div>
+    </>
   );
 }
 

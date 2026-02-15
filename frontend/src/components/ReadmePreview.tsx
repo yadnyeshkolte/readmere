@@ -2,18 +2,26 @@
 
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import rehypeRaw from 'rehype-raw';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 interface ReadmePreviewProps {
   content: string;
   onCopy?: () => void;
+  onContentChange?: (newContent: string) => void;
 }
 
-export default function ReadmePreview({ content, onCopy }: ReadmePreviewProps) {
+export default function ReadmePreview({ content, onCopy, onContentChange }: ReadmePreviewProps) {
   const [copied, setCopied] = useState(false);
-  const [activeTab, setActiveTab] = useState<'preview' | 'code'>('preview');
+  const [activeTab, setActiveTab] = useState<'preview' | 'code' | 'edit'>('preview');
+  const [editContent, setEditContent] = useState(content);
+
+  // Sync edit content when external content changes (e.g. after improvement)
+  useEffect(() => {
+    setEditContent(content);
+  }, [content]);
 
   const copyToClipboard = () => {
     navigator.clipboard.writeText(content);
@@ -63,6 +71,18 @@ export default function ReadmePreview({ content, onCopy }: ReadmePreviewProps) {
               Markdown
             </span>
           </button>
+          <button
+            onClick={() => setActiveTab('edit')}
+            className={`px-4 py-3.5 text-xs font-medium border-b-2 transition-colors ${activeTab === 'edit'
+              ? 'border-emerald-500 text-white'
+              : 'border-transparent text-zinc-500 hover:text-zinc-300'
+              }`}
+          >
+            <span className="flex items-center gap-1.5">
+              <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
+              Edit
+            </span>
+          </button>
         </div>
 
         <div className="flex items-center gap-1.5">
@@ -90,9 +110,10 @@ export default function ReadmePreview({ content, onCopy }: ReadmePreviewProps) {
       {/* Content */}
       <div className="flex-1 overflow-auto">
         {activeTab === 'preview' ? (
-          <div className="p-8 md:p-10 prose prose-invert prose-emerald max-w-none prose-headings:border-b prose-headings:border-zinc-800 prose-headings:pb-3 prose-pre:bg-zinc-900 prose-pre:border prose-pre:border-zinc-800 prose-pre:rounded-xl prose-img:rounded-xl prose-hr:border-zinc-800 prose-a:text-emerald-400 prose-code:text-emerald-400">
+          <div className="p-8 md:p-10 github-markdown">
             <ReactMarkdown
               remarkPlugins={[remarkGfm]}
+              rehypePlugins={[rehypeRaw]}
               components={{
                 code({ node, className, children, ...props }: any) {
                   const match = /language-(\w+)/.exec(className || '')
@@ -102,12 +123,12 @@ export default function ReadmePreview({ content, onCopy }: ReadmePreviewProps) {
                       style={vscDarkPlus}
                       language={match[1]}
                       PreTag="div"
-                      className="rounded-lg !bg-zinc-900 !border !border-zinc-800"
+                      className="rounded-md !bg-[#161b22] !border !border-[#30363d]"
                     >
                       {String(children).replace(/\n$/, '')}
                     </SyntaxHighlighter>
                   ) : (
-                    <code {...props} className={`${className} bg-zinc-800 px-1.5 py-0.5 rounded text-emerald-400 font-mono text-[0.85em]`}>
+                    <code {...props} className={className}>
                       {children}
                     </code>
                   )
@@ -116,6 +137,19 @@ export default function ReadmePreview({ content, onCopy }: ReadmePreviewProps) {
             >
               {content}
             </ReactMarkdown>
+          </div>
+        ) : activeTab === 'edit' ? (
+          <div className="h-full flex flex-col">
+            <textarea
+              value={editContent}
+              onChange={(e) => {
+                setEditContent(e.target.value);
+                onContentChange?.(e.target.value);
+              }}
+              className="flex-1 w-full p-8 bg-transparent text-zinc-200 font-mono text-sm resize-none focus:outline-none leading-relaxed"
+              spellCheck={false}
+              placeholder="Edit your README markdown here..."
+            />
           </div>
         ) : (
           <div className="h-full">
