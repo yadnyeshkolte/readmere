@@ -77,9 +77,9 @@ const categories = [
 
 export default function ScorePage() {
     return (
-        <div className="max-w-4xl mx-auto p-6 md:p-10 animate-fade-in-up">
+        <div className="max-w-4xl mx-auto p-4 sm:p-6 md:p-10 animate-fade-in-up">
             {/* Header */}
-            <div className="mb-10">
+            <div className="mb-8 sm:mb-10">
                 <Link
                     href="/"
                     className="inline-flex items-center gap-1.5 text-xs text-zinc-500 hover:text-emerald-400 transition-colors mb-6"
@@ -89,19 +89,19 @@ export default function ScorePage() {
                     </svg>
                     Back to Home
                 </Link>
-                <h1 className="text-3xl md:text-4xl font-bold text-white mb-3">
+                <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white mb-3">
                     How We Score Your README
                 </h1>
-                <p className="text-zinc-400 text-lg leading-relaxed max-w-2xl">
+                <p className="text-zinc-400 text-base sm:text-lg leading-relaxed max-w-2xl">
                     Our AI quality checker evaluates your generated README across 5 weighted categories.
                     The overall score is a weighted average — here&apos;s exactly how it works.
                 </p>
             </div>
 
             {/* Formula */}
-            <div className="glass rounded-2xl p-6 mb-8">
+            <div className="glass rounded-2xl p-4 sm:p-6 mb-6 sm:mb-8">
                 <p className="text-xs text-zinc-500 uppercase tracking-wider mb-3">Scoring Formula</p>
-                <div className="font-mono text-sm text-emerald-400 bg-zinc-950 rounded-xl p-4 overflow-x-auto">
+                <div className="font-mono text-xs sm:text-sm text-emerald-400 bg-zinc-950 rounded-xl p-3 sm:p-4 overflow-x-auto">
                     <span className="text-zinc-500">overall =</span>{' '}
                     {categories.map((c, i) => (
                         <span key={c.name}>
@@ -115,14 +115,14 @@ export default function ScorePage() {
             </div>
 
             {/* Categories */}
-            <div className="space-y-5">
+            <div className="space-y-4 sm:space-y-5">
                 {categories.map((cat) => (
                     <div
                         key={cat.name}
-                        className="glass rounded-2xl p-6 hover:border-emerald-500/20 transition-all duration-300"
+                        className="glass rounded-2xl p-4 sm:p-6 hover:border-emerald-500/20 transition-all duration-300"
                     >
-                        <div className="flex items-start gap-4">
-                            <div className="text-3xl shrink-0">{cat.icon}</div>
+                        <div className="flex items-start gap-3 sm:gap-4">
+                            <div className="text-2xl sm:text-3xl shrink-0">{cat.icon}</div>
                             <div className="flex-1">
                                 <div className="flex items-center gap-3 mb-1">
                                     <h2 className="text-lg font-bold text-white">{cat.name}</h2>
@@ -146,7 +146,7 @@ export default function ScorePage() {
             </div>
 
             {/* Improve CTA */}
-            <div className="mt-10 glass rounded-2xl p-6 text-center">
+            <div className="mt-8 sm:mt-10 glass rounded-2xl p-4 sm:p-6 text-center">
                 <p className="text-zinc-400 text-sm mb-3">
                     Not happy with your score? Hit the <span className="text-emerald-400 font-medium">✨ Improve Score</span> button
                     on the results page — our AI will enhance your README based on the specific suggestions.

@@ -9,11 +9,11 @@ export default function Home() {
         <div className="orb-1 absolute top-20 left-1/4 w-[500px] h-[500px] rounded-full bg-emerald-500/5 blur-[120px]" />
         <div className="orb-2 absolute top-40 right-1/4 w-[400px] h-[400px] rounded-full bg-cyan-500/5 blur-[100px]" />
         <div className="orb-1 absolute bottom-20 left-1/2 w-[300px] h-[300px] rounded-full bg-violet-500/5 blur-[80px]" />
-        <div className="orb-2 absolute top-[60%] left-1/3 w-[350px] h-[350px] rounded-full bg-pink-500/3 blur-[100px]" />
+        <div className="orb-2 absolute top-[60%] left-1/3 w-[350px] h-[350px] rounded-full bg-pink-500/5 blur-[100px]" />
       </div>
 
       {/* Hero Section */}
-      <section className="relative flex flex-col items-center justify-center px-6 pt-16 pb-20 md:pt-24 md:pb-24 text-center bg-grid min-h-[90vh]">
+      <section className="relative flex flex-col items-center justify-center px-4 sm:px-6 pt-12 pb-16 md:pt-24 md:pb-24 text-center bg-grid min-h-[90vh]">
         <div className="space-y-6 max-w-4xl animate-fade-in-up">
           {/* Badge */}
           <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-emerald-950/50 border border-emerald-800/30 text-emerald-400 text-xs font-medium">
@@ -22,7 +22,7 @@ export default function Home() {
           </div>
 
           {/* Headline */}
-          <h1 className="text-5xl md:text-7xl lg:text-8xl font-extrabold tracking-tight leading-[1.05]">
+          <h1 className="text-4xl sm:text-5xl md:text-7xl lg:text-8xl font-extrabold tracking-tight leading-[1.05]">
             Bring dead docs{" "}
             <br className="hidden sm:block" />
             <span className="bg-gradient-to-r from-emerald-400 via-cyan-400 to-emerald-500 bg-clip-text text-transparent shimmer-text">
@@ -38,19 +38,19 @@ export default function Home() {
           </p>
 
           {/* Quick stats */}
-          <div className="flex items-center justify-center gap-6 text-xs text-zinc-500">
+          <div className="flex flex-wrap items-center justify-center gap-3 sm:gap-6 text-xs text-zinc-500">
             <div className="flex items-center gap-1.5">
               <span className="text-emerald-400 font-bold text-sm">5</span> MCP Agents
             </div>
-            <span className="text-zinc-800">|</span>
+            <span className="text-zinc-700 hidden sm:inline">|</span>
             <div className="flex items-center gap-1.5">
               <span className="text-cyan-400 font-bold text-sm">14</span> MCP Tools
             </div>
-            <span className="text-zinc-800">|</span>
+            <span className="text-zinc-700 hidden sm:inline">|</span>
             <div className="flex items-center gap-1.5">
               <span className="text-violet-400 font-bold text-sm">1M</span> Token Context
             </div>
-            <span className="text-zinc-800">|</span>
+            <span className="text-zinc-700 hidden sm:inline">|</span>
             <div className="flex items-center gap-1.5">
               <span className="text-amber-400 font-bold text-sm">100</span> Point Scoring
             </div>
@@ -84,7 +84,7 @@ export default function Home() {
                   {item.sub && <span className="text-[9px] opacity-50">{item.sub}</span>}
                 </div>
                 {i < 6 && (
-                  <div className="hidden md:flex items-center mx-1 text-zinc-700 overflow-hidden w-6">
+                  <div className="hidden md:flex items-center mx-1 text-emerald-500/70 overflow-hidden w-6">
                     <span className="animate-flow text-xs">→</span>
                   </div>
                 )}
@@ -95,10 +95,10 @@ export default function Home() {
       </section>
 
       {/* MCP Architecture Diagram Section */}
-      <section className="px-6 pb-20 max-w-6xl mx-auto">
-        <div className="text-center mb-12 animate-fade-in-up">
+      <section className="px-4 sm:px-6 pb-16 sm:pb-20 max-w-6xl mx-auto">
+        <div className="text-center mb-8 sm:mb-12 animate-fade-in-up">
           <p className="text-xs text-violet-400 uppercase tracking-widest mb-2">System Architecture</p>
-          <h2 className="text-3xl md:text-4xl font-bold text-white">
+          <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white">
             Multi-Agent MCP in Action
           </h2>
           <p className="text-zinc-500 text-sm mt-3 max-w-2xl mx-auto">
@@ -107,38 +107,38 @@ export default function Home() {
         </div>
 
         {/* Architecture Diagram */}
-        <div className="glass rounded-3xl p-6 md:p-10 animate-fade-in-up relative overflow-hidden">
+        <div className="glass rounded-2xl sm:rounded-3xl p-4 sm:p-6 md:p-10 animate-fade-in-up relative overflow-hidden">
           {/* Background decoration */}
           <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/5 rounded-full blur-[80px]" />
           <div className="absolute bottom-0 left-0 w-48 h-48 bg-cyan-500/5 rounded-full blur-[60px]" />
 
           <div className="relative z-10">
             {/* Top: User → Frontend → Backend */}
-            <div className="flex items-center justify-center gap-3 mb-8">
-              <div className="px-4 py-3 rounded-xl bg-zinc-800/80 border border-zinc-700/50 text-center">
-                <div className="text-2xl mb-1">🧟‍♂️</div>
-                <div className="text-xs font-semibold text-white">User</div>
+            <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-3 mb-8">
+              <div className="px-3 sm:px-4 py-2 sm:py-3 rounded-xl bg-zinc-800/80 border border-zinc-700/50 text-center">
+                <div className="text-xl sm:text-2xl mb-1">🧟‍♂️</div>
+                <div className="text-[10px] sm:text-xs font-semibold text-white">User</div>
               </div>
-              <div className="text-zinc-600 text-lg">→</div>
-              <div className="px-4 py-3 rounded-xl bg-zinc-800/80 border border-zinc-700/50 text-center">
-                <div className="text-2xl mb-1">⚛️</div>
-                <div className="text-xs font-semibold text-white">Next.js</div>
-                <div className="text-[9px] text-zinc-500">Frontend</div>
+              <div className="text-emerald-500/70 text-base sm:text-lg">→</div>
+              <div className="px-3 sm:px-4 py-2 sm:py-3 rounded-xl bg-zinc-800/80 border border-zinc-700/50 text-center">
+                <div className="text-xl sm:text-2xl mb-1">⚛️</div>
+                <div className="text-[10px] sm:text-xs font-semibold text-white">Next.js</div>
+                <div className="text-[8px] sm:text-[9px] text-zinc-500">Frontend</div>
               </div>
-              <div className="text-zinc-600 text-lg hidden md:block">
+              <div className="text-emerald-500/70 text-base sm:text-lg hidden md:block">
                 <div className="text-[9px] text-emerald-500/60 text-center mb-0.5">SSE Stream</div>
                 →
               </div>
-              <div className="px-4 py-3 rounded-xl bg-zinc-800/80 border border-zinc-700/50 text-center">
-                <div className="text-2xl mb-1">🚂</div>
-                <div className="text-xs font-semibold text-white">Express</div>
-                <div className="text-[9px] text-zinc-500">Backend</div>
+              <div className="px-3 sm:px-4 py-2 sm:py-3 rounded-xl bg-zinc-800/80 border border-zinc-700/50 text-center">
+                <div className="text-xl sm:text-2xl mb-1">🚂</div>
+                <div className="text-[10px] sm:text-xs font-semibold text-white">Express</div>
+                <div className="text-[8px] sm:text-[9px] text-zinc-500">Backend</div>
               </div>
-              <div className="text-zinc-600 text-lg hidden md:block">→</div>
-              <div className="px-5 py-3 rounded-xl bg-emerald-950/40 border border-emerald-500/30 text-center">
-                <div className="text-2xl mb-1">🎭</div>
-                <div className="text-xs font-bold text-emerald-400">Archestra</div>
-                <div className="text-[9px] text-emerald-500/60">Orchestrator</div>
+              <div className="text-emerald-500/70 text-base sm:text-lg hidden md:block">→</div>
+              <div className="px-3 sm:px-5 py-2 sm:py-3 rounded-xl bg-emerald-950/40 border border-emerald-500/30 text-center">
+                <div className="text-xl sm:text-2xl mb-1">🎭</div>
+                <div className="text-[10px] sm:text-xs font-bold text-emerald-400">Archestra</div>
+                <div className="text-[8px] sm:text-[9px] text-emerald-500/60">Orchestrator</div>
               </div>
             </div>
 
@@ -150,13 +150,13 @@ export default function Home() {
             {/* MCP Servers row */}
             <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
               {[
-                { num: 1, icon: '🔍', name: 'Repo Analyzer', port: 3002, color: 'emerald', tools: ['get_repo_metadata', 'analyze_repository', 'identify_important_files', 'get_repo_insights'], llm: false },
-                { num: 2, icon: '📖', name: 'Code Reader', port: 3003, color: 'cyan', tools: ['read_files', 'extract_signatures', 'smart_chunk', 'extract_commands'], llm: false },
-                { num: 3, icon: '✍️', name: 'Doc Generator', port: 3004, color: 'violet', tools: ['generate_readme'], llm: true },
-                { num: 4, icon: '📊', name: 'Scorer', port: 3005, color: 'amber', tools: ['validate_readme'], llm: true },
-                { num: 5, icon: '✨', name: 'Improver', port: 3006, color: 'pink', tools: ['enhance_readme'], llm: true },
+                { num: 1, icon: '🔍', name: 'Repo Analyzer', port: 3002, tools: ['get_repo_metadata', 'analyze_repository', 'identify_important_files', 'get_repo_insights'], llm: false, borderClass: 'border-emerald-800/20 hover:border-emerald-500/40' },
+                { num: 2, icon: '📖', name: 'Code Reader', port: 3003, tools: ['read_files', 'extract_signatures', 'smart_chunk', 'extract_commands'], llm: false, borderClass: 'border-cyan-800/20 hover:border-cyan-500/40' },
+                { num: 3, icon: '✍️', name: 'Doc Generator', port: 3004, tools: ['generate_readme'], llm: true, borderClass: 'border-violet-800/20 hover:border-violet-500/40' },
+                { num: 4, icon: '📊', name: 'Scorer', port: 3005, tools: ['validate_readme'], llm: true, borderClass: 'border-amber-800/20 hover:border-amber-500/40' },
+                { num: 5, icon: '✨', name: 'Improver', port: 3006, tools: ['enhance_readme'], llm: true, borderClass: 'border-pink-800/20 hover:border-pink-500/40' },
               ].map((agent) => (
-                <div key={agent.num} className={`group p-4 rounded-xl bg-zinc-900/60 border border-${agent.color}-800/20 hover:border-${agent.color}-500/40 transition-all duration-300 hover:translate-y-[-2px]`}>
+                <div key={agent.num} className={`group p-4 rounded-xl bg-zinc-900/60 border ${agent.borderClass} transition-all duration-300 hover:translate-y-[-2px]`}>
                   <div className="flex items-center gap-2 mb-2">
                     <span className="text-lg">{agent.icon}</span>
                     <div>
@@ -204,10 +204,10 @@ export default function Home() {
       </section>
 
       {/* Agent Cards Section */}
-      <section className="px-6 pb-20 max-w-6xl mx-auto">
-        <div className="text-center mb-12 animate-fade-in-up">
+      <section className="px-4 sm:px-6 pb-16 sm:pb-20 max-w-6xl mx-auto">
+        <div className="text-center mb-8 sm:mb-12 animate-fade-in-up">
           <p className="text-xs text-emerald-500 uppercase tracking-widest mb-2">Meet the Agents</p>
-          <h2 className="text-3xl md:text-4xl font-bold text-white">
+          <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white">
             Five specialized AI agents,{" "}
             <span className="text-zinc-500">one mission</span>
           </h2>
@@ -216,34 +216,49 @@ export default function Home() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 stagger-children">
           {[
             {
-              icon: '🔍', name: 'Repo Analyzer', port: 3002, color: 'emerald',
+              icon: '🔍', name: 'Repo Analyzer', port: 3002,
               desc: 'Crawls GitHub API to map file trees, detect languages, rank important files, and gather community insights.',
               tools: ['analyze_repo', 'metadata', 'insights'],
+              cardClass: 'hover:border-emerald-500/30 hover:shadow-emerald-900/10',
+              iconBgClass: 'bg-emerald-950/50 border-emerald-800/20',
+              tagClass: 'bg-emerald-950/50 text-emerald-500/70 border-emerald-800/20',
             },
             {
-              icon: '📖', name: 'Code Reader', port: 3003, color: 'cyan',
+              icon: '📖', name: 'Code Reader', port: 3003,
               desc: 'Reads key files, extracts function signatures, verified commands, and creates LLM-optimized chunks.',
               tools: ['read_files', 'smart_chunk', 'signatures'],
+              cardClass: 'hover:border-cyan-500/30 hover:shadow-cyan-900/10',
+              iconBgClass: 'bg-cyan-950/50 border-cyan-800/20',
+              tagClass: 'bg-cyan-950/50 text-cyan-500/70 border-cyan-800/20',
             },
             {
-              icon: '✍️', name: 'Doc Generator', port: 3004, color: 'violet',
+              icon: '✍️', name: 'Doc Generator', port: 3004,
               desc: 'Uses Gemini 2.5 Flash with 32K output tokens to craft comprehensive, production-ready READMEs.',
               tools: ['generate', 'gemini', '3 styles'],
+              cardClass: 'hover:border-violet-500/30 hover:shadow-violet-900/10',
+              iconBgClass: 'bg-violet-950/50 border-violet-800/20',
+              tagClass: 'bg-violet-950/50 text-violet-500/70 border-violet-800/20',
             },
             {
-              icon: '📊', name: 'README Scorer', port: 3005, color: 'amber',
+              icon: '📊', name: 'README Scorer', port: 3005,
               desc: 'Evaluates quality across 5 weighted categories: completeness, accuracy, structure, readability, visual.',
               tools: ['validate', 'score', '100-pt'],
+              cardClass: 'hover:border-amber-500/30 hover:shadow-amber-900/10',
+              iconBgClass: 'bg-amber-950/50 border-amber-800/20',
+              tagClass: 'bg-amber-950/50 text-amber-500/70 border-amber-800/20',
             },
             {
-              icon: '✨', name: 'Improver', port: 3006, color: 'pink',
+              icon: '✨', name: 'Improver', port: 3006,
               desc: 'Enhances README based on score feedback and custom prompts, preserving content and boosting quality.',
               tools: ['enhance', 'iterate', 'preserve'],
+              cardClass: 'hover:border-pink-500/30 hover:shadow-pink-900/10',
+              iconBgClass: 'bg-pink-950/50 border-pink-800/20',
+              tagClass: 'bg-pink-950/50 text-pink-500/70 border-pink-800/20',
             },
           ].map((agent, i) => (
-            <div key={i} className={`group p-5 rounded-2xl glass hover:border-${agent.color}-500/30 transition-all duration-300 hover:translate-y-[-4px] hover:shadow-lg hover:shadow-${agent.color}-900/10`}>
+            <div key={i} className={`group p-5 rounded-2xl glass ${agent.cardClass} transition-all duration-300 hover:translate-y-[-4px] hover:shadow-lg`}>
               <div className="flex items-center gap-3 mb-3">
-                <div className={`w-10 h-10 rounded-xl bg-${agent.color}-950/50 border border-${agent.color}-800/20 flex items-center justify-center text-lg group-hover:scale-110 transition-transform`}>
+                <div className={`w-10 h-10 rounded-xl ${agent.iconBgClass} border flex items-center justify-center text-lg group-hover:scale-110 transition-transform`}>
                   {agent.icon}
                 </div>
                 <div>
@@ -254,7 +269,7 @@ export default function Home() {
               <p className="text-zinc-400 text-xs leading-relaxed">{agent.desc}</p>
               <div className="flex gap-1 mt-3 flex-wrap">
                 {agent.tools.map((tool) => (
-                  <span key={tool} className={`px-1.5 py-0.5 rounded text-[9px] bg-${agent.color}-950/50 text-${agent.color}-500/70 border border-${agent.color}-800/20`}>
+                  <span key={tool} className={`px-1.5 py-0.5 rounded text-[9px] ${agent.tagClass} border`}>
                     {tool}
                   </span>
                 ))}
@@ -265,10 +280,10 @@ export default function Home() {
       </section>
 
       {/* Features Grid */}
-      <section className="px-6 pb-20 max-w-6xl mx-auto">
-        <div className="text-center mb-12">
+      <section className="px-4 sm:px-6 pb-16 sm:pb-20 max-w-6xl mx-auto">
+        <div className="text-center mb-8 sm:mb-12">
           <p className="text-xs text-pink-400 uppercase tracking-widest mb-2">Features</p>
-          <h2 className="text-3xl md:text-4xl font-bold text-white">
+          <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white">
             Not just generation.{" "}
             <span className="text-zinc-500">A complete workflow.</span>
           </h2>
@@ -296,10 +311,10 @@ export default function Home() {
       </section>
 
       {/* How It Works Section */}
-      <section className="px-6 pb-20 max-w-4xl mx-auto">
-        <div className="text-center mb-12">
+      <section className="px-4 sm:px-6 pb-16 sm:pb-20 max-w-4xl mx-auto">
+        <div className="text-center mb-8 sm:mb-12">
           <p className="text-xs text-cyan-500 uppercase tracking-widest mb-2">How It Works</p>
-          <h2 className="text-3xl md:text-4xl font-bold text-white">
+          <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white">
             Three steps.{" "}
             <span className="text-zinc-500">Zero effort.</span>
           </h2>
@@ -330,14 +345,14 @@ export default function Home() {
       </section>
 
       {/* Why MCP Section */}
-      <section className="px-6 pb-20 max-w-5xl mx-auto">
-        <div className="glass rounded-3xl p-8 md:p-12 relative overflow-hidden">
+      <section className="px-4 sm:px-6 pb-16 sm:pb-20 max-w-5xl mx-auto">
+        <div className="glass rounded-2xl sm:rounded-3xl p-5 sm:p-8 md:p-12 relative overflow-hidden">
           <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-emerald-500 via-cyan-500 to-violet-500 opacity-50"></div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-10">
             <div>
               <p className="text-xs text-emerald-400 uppercase tracking-widest mb-3">Why MCP?</p>
-              <h2 className="text-2xl md:text-3xl font-bold text-white mb-4">
+              <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-white mb-4">
                 Why Multi-Agent Over Monolithic?
               </h2>
               <div className="space-y-4">
@@ -360,7 +375,7 @@ export default function Home() {
 
             <div>
               <p className="text-xs text-cyan-400 uppercase tracking-widest mb-3">Why These Technologies?</p>
-              <h2 className="text-2xl md:text-3xl font-bold text-white mb-4">
+              <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-white mb-4">
                 Built for Speed & Quality
               </h2>
               <div className="space-y-3">
@@ -382,16 +397,16 @@ export default function Home() {
       </section>
 
       {/* Tech Stack Section */}
-      <section className="px-6 pb-20 max-w-5xl mx-auto">
-        <div className="glass rounded-2xl p-8 md:p-10">
-          <div className="text-center mb-8">
+      <section className="px-4 sm:px-6 pb-16 sm:pb-20 max-w-5xl mx-auto">
+        <div className="glass rounded-2xl p-5 sm:p-8 md:p-10">
+          <div className="text-center mb-6 sm:mb-8">
             <p className="text-xs text-violet-400 uppercase tracking-widest mb-2">Under the Hood</p>
-            <h2 className="text-2xl md:text-3xl font-bold text-white">
+            <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-white">
               Powered by cutting-edge tech
             </h2>
           </div>
 
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 stagger-children">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 stagger-children">
             {[
               { icon: '🧠', name: 'Gemini 2.5 Flash', desc: '1M ctx · 65K out' },
               { icon: '🔌', name: 'MCP Protocol', desc: 'AI tool standard' },
@@ -419,17 +434,17 @@ export default function Home() {
       </section>
 
       {/* Hackathon CTA */}
-      <section className="px-6 pb-24 max-w-4xl mx-auto text-center">
-        <div className="relative p-10 md:p-14 rounded-3xl overflow-hidden">
+      <section className="px-4 sm:px-6 pb-20 sm:pb-24 max-w-4xl mx-auto text-center">
+        <div className="relative p-6 sm:p-10 md:p-14 rounded-2xl sm:rounded-3xl overflow-hidden">
           {/* Background glow */}
           <div className="absolute inset-0 bg-gradient-to-br from-emerald-950/50 via-zinc-950 to-cyan-950/50 rounded-3xl border border-emerald-800/20" />
 
           <div className="relative z-10">
             <div className="text-5xl mb-4">🏎️</div>
-            <h2 className="text-2xl md:text-3xl font-bold text-white mb-3">
+            <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-white mb-3">
               Built for{" "}
               <span className="bg-gradient-to-r from-red-400 to-orange-400 bg-clip-text text-transparent">
-                2 Fast 2 MCP
+                Developers
               </span>
             </h2>
             <p className="text-zinc-400 text-sm mb-4 max-w-lg mx-auto">

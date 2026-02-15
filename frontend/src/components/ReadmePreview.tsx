@@ -43,9 +43,9 @@ export default function ReadmePreview({ content, onCopy, onContentChange }: Read
   };
 
   return (
-    <div className="w-full glass rounded-2xl overflow-hidden flex flex-col h-[800px] animate-fade-in-up">
+    <div className="w-full glass rounded-2xl overflow-hidden flex flex-col h-[500px] sm:h-[650px] md:h-[800px] animate-fade-in-up">
       {/* Tab Bar */}
-      <div className="px-4 border-b border-zinc-800/50 flex justify-between items-center bg-zinc-900/30">
+      <div className="px-3 sm:px-4 border-b border-zinc-800/50 flex justify-between items-center bg-zinc-900/30">
         <div className="flex">
           <button
             onClick={() => setActiveTab('preview')}
@@ -110,7 +110,7 @@ export default function ReadmePreview({ content, onCopy, onContentChange }: Read
       {/* Content */}
       <div className="flex-1 overflow-auto">
         {activeTab === 'preview' ? (
-          <div className="p-8 md:p-10 github-markdown">
+          <div className="p-4 sm:p-6 md:p-10 github-markdown">
             <ReactMarkdown
               remarkPlugins={[remarkGfm]}
               rehypePlugins={[rehypeRaw]}

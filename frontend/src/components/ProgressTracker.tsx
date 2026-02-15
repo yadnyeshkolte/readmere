@@ -23,7 +23,7 @@ export default function ProgressTracker({ steps }: ProgressTrackerProps) {
   const progress = (completedCount / steps.length) * 100;
 
   return (
-    <div className="w-full max-w-md glass rounded-2xl p-6 relative overflow-hidden">
+    <div className="w-full glass rounded-2xl p-4 sm:p-6 relative overflow-hidden">
       {/* Progress bar at top */}
       <div className="absolute top-0 left-0 right-0 h-0.5 bg-zinc-800">
         <div

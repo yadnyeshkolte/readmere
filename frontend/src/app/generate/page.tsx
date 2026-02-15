@@ -43,7 +43,7 @@ function Confetti() {
 function Toast({ message, show, type = 'success' }: { message: string; show: boolean; type?: 'success' | 'info' }) {
   if (!show) return null;
   return (
-    <div className="fixed bottom-6 right-6 z-50 toast-enter">
+    <div className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-50 toast-enter max-w-[calc(100vw-2rem)]">
       <div className={`flex items-center gap-2.5 px-4 py-3 rounded-xl shadow-2xl border text-sm font-medium
         ${type === 'success' ? 'bg-emerald-950/90 border-emerald-500/30 text-emerald-300' : 'bg-zinc-900/90 border-zinc-700/30 text-zinc-200'}`}>
         {type === 'success' ? (
@@ -60,7 +60,7 @@ function Toast({ message, show, type = 'success' }: { message: string; show: boo
 // Animated stat card
 function StatCard({ icon, label, value, delay }: { icon: string; label: string; value: string; delay: string }) {
   return (
-    <div className="animate-counter-pop glass rounded-xl px-3 py-2.5 text-center min-w-[80px]" style={{ animationDelay: delay }}>
+    <div className="animate-counter-pop glass rounded-xl px-2.5 sm:px-3 py-2 sm:py-2.5 text-center min-w-[70px] sm:min-w-[80px]" style={{ animationDelay: delay }}>
       <div className="text-lg mb-0.5">{icon}</div>
       <div className="text-white font-bold text-sm">{value}</div>
       <div className="text-zinc-500 text-[10px] uppercase tracking-wider">{label}</div>
@@ -152,8 +152,8 @@ function PRModal({ show, onClose, repoUrl, readme }: { show: boolean; onClose: (
   };
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={onClose}>
-      <div className="glass rounded-2xl p-6 max-w-md w-full space-y-4 animate-fade-in-up" onClick={e => e.stopPropagation()}>
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-4" onClick={onClose}>
+      <div className="glass rounded-2xl p-4 sm:p-6 max-w-md w-full space-y-4 animate-fade-in-up max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between">
           <h3 className="text-white font-semibold text-sm">Create Pull Request</h3>
           <button onClick={onClose} className="text-zinc-500 hover:text-zinc-300 transition">✕</button>
@@ -490,7 +490,7 @@ function GenerateContent() {
 
   if (!repoUrl) {
     return (
-      <div className="flex flex-col items-center justify-center p-24 gap-4 text-center">
+      <div className="flex flex-col items-center justify-center p-10 sm:p-24 gap-4 text-center">
         <span className="text-5xl">💀</span>
         <h2 className="text-xl font-bold text-white">No repository URL provided</h2>
         <button onClick={() => router.push('/')} className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm transition">
@@ -507,9 +507,9 @@ function GenerateContent() {
     {toast && <Toast message={toast.message} show={true} type={toast.type} />}
     {repoUrl && <PRModal show={showPRModal} onClose={() => setShowPRModal(false)} repoUrl={repoUrl} readme={readme} />}
 
-    <div className="flex flex-col lg:flex-row gap-8 p-6 md:p-10 max-w-[1600px] mx-auto w-full animate-fade-in-up">
+    <div className="flex flex-col lg:flex-row gap-5 sm:gap-8 p-4 sm:p-6 md:p-10 max-w-[1600px] mx-auto w-full animate-fade-in-up">
       {/* Left Panel */}
-      <div className="w-full lg:w-[360px] space-y-5 shrink-0">
+      <div className="w-full lg:w-[360px] space-y-4 sm:space-y-5 shrink-0">
         {/* Repo info */}
         <div className="glass rounded-2xl p-5">
           <p className="text-xs text-zinc-500 uppercase tracking-wider mb-1.5">Resurrecting</p>
@@ -743,7 +743,7 @@ function GenerateContent() {
         {readme ? (
           <div className="space-y-0">
             {/* View Mode Tabs */}
-            <div className="flex items-center gap-1 mb-3">
+            <div className="flex items-center gap-1 mb-3 overflow-x-auto pb-1">
               <button
                 onClick={() => setViewMode('preview')}
                 className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${viewMode === 'preview'
@@ -782,7 +782,7 @@ function GenerateContent() {
               <ReadmePreview content={readme} onCopy={() => showToast('Copied to clipboard! 📋')} onContentChange={handleContentChange} />
             )}
             {viewMode === 'diff' && originalReadme && (
-              <div className="glass rounded-2xl p-5 overflow-auto max-h-[800px]">
+              <div className="glass rounded-2xl p-3 sm:p-5 overflow-auto max-h-[500px] sm:max-h-[650px] md:max-h-[800px]">
                 <DiffView
                   oldText={originalReadme}
                   newText={readme}
@@ -792,7 +792,7 @@ function GenerateContent() {
               </div>
             )}
             {viewMode === 'improve-diff' && previousReadme && (
-              <div className="glass rounded-2xl p-5 overflow-auto max-h-[800px]">
+              <div className="glass rounded-2xl p-3 sm:p-5 overflow-auto max-h-[500px] sm:max-h-[650px] md:max-h-[800px]">
                 <DiffView
                   oldText={previousReadme}
                   newText={readme}
@@ -803,7 +803,7 @@ function GenerateContent() {
             )}
           </div>
         ) : (
-          <div className="h-[700px] border border-dashed border-zinc-800/50 rounded-2xl flex items-center justify-center bg-zinc-950/30">
+          <div className="h-[400px] sm:h-[600px] md:h-[700px] border border-dashed border-zinc-800/50 rounded-2xl flex items-center justify-center bg-zinc-950/30">
             <div className="text-center space-y-4">
               {error ? (
                 <>

@@ -15,13 +15,8 @@ export default function Footer() {
           <span className="text-zinc-800">·</span>
           <span>🤗 HF Spaces</span>
         </div>
-        <p className="text-zinc-500 text-xs">
-          Built for the{" "}
-          <span className="text-white font-medium">2 Fast 2 MCP</span>{" "}
-          Hackathon — 5 specialized AI agents orchestrated via MCP
-        </p>
         <p className="mt-1.5 text-zinc-700 text-[10px]">
-          README Resurrector &copy; 2025 &mdash; Yadnyesh Kolte
+          README Resurrector &copy; 2026 &mdash; Yadnyesh Kolte
         </p>
       </div>
     </footer>
