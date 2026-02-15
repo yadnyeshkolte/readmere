@@ -89,7 +89,7 @@ function createServer() {
                   }
                 }
               },
-              maxTokens: { type: "number", default: 12000 }
+              maxTokens: { type: "number", default: 30000 }
             },
             required: ["files"],
           },
@@ -132,7 +132,7 @@ function createServer() {
           const resp = await fetch(url, { headers: HEADERS });
           if (!resp.ok) return { path, content: `Error reading file: ${resp.statusText}` };
           const text = await resp.text();
-          if (text.length > 10000) return { path, content: text.substring(0, 10000) + "\n...[TRUNCATED]" };
+          if (text.length > 30000) return { path, content: text.substring(0, 30000) + "\n...[TRUNCATED]" };
           return { path, content: text };
         } catch (e: any) {
           return { path, content: `Error: ${e.message}` };
@@ -169,7 +169,7 @@ function createServer() {
     }
 
     if (name === "smart_chunk") {
-      const { files, maxTokens = 12000 } = args as { files: { path: string, content: string }[], maxTokens?: number };
+      const { files, maxTokens = 30000 } = args as { files: { path: string, content: string }[], maxTokens?: number };
       let currentTokens = 0;
       const chunkedFiles = [];
       const sortedFiles = [...files].sort((a, b) => {

@@ -17,7 +17,7 @@ const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const GEMINI_MODEL = "gemini-2.5-flash";
 const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
 
-async function callGemini(messages: any[], maxTokens = 8192): Promise<string> {
+async function callGemini(messages: any[], maxTokens = 16384): Promise<string> {
     if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY not set");
 
     const systemInstruction = messages.find((m: any) => m.role === 'system')?.content || '';
@@ -33,7 +33,7 @@ async function callGemini(messages: any[], maxTokens = 8192): Promise<string> {
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
         try {
             const controller = new AbortController();
-            const timeout = setTimeout(() => controller.abort(), 90_000);
+            const timeout = setTimeout(() => controller.abort(), 180_000);
             const response = await fetch(GEMINI_URL, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -72,7 +72,7 @@ async function callGemini(messages: any[], maxTokens = 8192): Promise<string> {
         } catch (e: any) {
             lastError = e;
             if (e.name === 'AbortError') {
-                throw new Error('Gemini API request timed out after 90s');
+                throw new Error('Gemini API request timed out after 180s');
             }
             if (attempt < maxRetries && (e.message?.includes('429') || e.message?.includes('RESOURCE_EXHAUSTED'))) {
                 const waitMs = Math.min(30_000 * (attempt + 1), 120_000);
@@ -134,12 +134,12 @@ RULES:
 - Do NOT wrap in code blocks or add explanations
 
 ORIGINAL README:
-${readme.substring(0, 15000)}`;
+${readme.substring(0, 40000)}`;
 
             const improved = await callGemini([
                 { role: "system", content: "You are an expert technical writer who improves open-source documentation. Return ONLY the improved README in raw Markdown. Never wrap in code blocks." },
                 { role: "user", content: prompt }
-            ], 8192);
+            ], 16384);
             return {
                 content: [{ type: "text", text: improved }],
             };

@@ -17,9 +17,9 @@ function extractToolText(result: any): string {
 
 // Style configurations
 const STYLE_CONFIG: Record<string, { maxTokens: number; label: string }> = {
-  minimal: { maxTokens: 1500, label: "Minimal" },
-  standard: { maxTokens: 3000, label: "Standard" },
-  detailed: { maxTokens: 4000, label: "Detailed" },
+  minimal: { maxTokens: 3000, label: "Minimal" },
+  standard: { maxTokens: 6000, label: "Standard" },
+  detailed: { maxTokens: 10000, label: "Detailed" },
 };
 
 export class Orchestrator {
@@ -101,7 +101,7 @@ export class Orchestrator {
       }
 
       onProgress("reading", "running", "Optimizing context for LLM...");
-      const chunksResult = await this.archestra.callTool("smart_chunk", { files, maxTokens: 12000 });
+      const chunksResult = await this.archestra.callTool("smart_chunk", { files, maxTokens: 30000 });
       chunks = safeJsonParse(extractToolText(chunksResult));
 
       const sigCount = signatures.reduce((a: number, s: any) => a + (s.signatures?.length || 0), 0);

@@ -33,7 +33,7 @@ async function callGemini(messages: any[], maxTokens: number = 8192) {
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 90_000);
+      const timeout = setTimeout(() => controller.abort(), 180_000);
       const response = await fetch(GEMINI_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -69,7 +69,7 @@ async function callGemini(messages: any[], maxTokens: number = 8192) {
     } catch (e: any) {
       lastError = e;
       if (e.name === 'AbortError') {
-        throw new Error('Gemini API request timed out after 90s');
+        throw new Error('Gemini API request timed out after 180s');
       }
       if (e.message?.includes('429') || e.message?.includes('RESOURCE_EXHAUSTED')) {
         const waitMs = Math.min(30_000 * (attempt + 1), 120_000);
@@ -124,7 +124,7 @@ function createServer() {
       // Style-specific system prompts and token limits
       const stylePrompts: Record<string, { prompt: string; tokens: number }> = {
         minimal: {
-          tokens: 4096,
+          tokens: 8192,
           prompt: `You are a concise technical writer. Generate a MINIMAL README.md — short, clean, and actionable.
 
 Include ONLY these sections:
@@ -141,7 +141,7 @@ Rules:
 - Maximum ~150 lines total`
         },
         standard: {
-          tokens: 8192,
+          tokens: 16384,
           prompt: `You are a world-class technical writer who creates beautiful, comprehensive README.md files. You write READMEs that developers LOVE — clear, professional, and visually appealing.
 
 Include these sections:
@@ -164,7 +164,7 @@ Rules:
 - Be thorough but concise`
         },
         detailed: {
-          tokens: 16384,
+          tokens: 32768,
           prompt: `You are a world-class technical writer who creates beautiful, comprehensive README.md files for open-source projects. You write READMEs that developers LOVE — clear, professional, and visually appealing.
 
 Your README MUST include ALL of the following sections (skip only if truly irrelevant):
@@ -202,20 +202,20 @@ Rules:
       let userContent = `## Repository Information
 
 **Metadata:**
-${JSON.stringify(metadata, null, 2).substring(0, 1500)}
+${JSON.stringify(metadata, null, 2).substring(0, 4000)}
 
 **Analysis Summary:**
 - Total files: ${cleanAnalysis.fileCount || '?'}
-- Languages: ${JSON.stringify(cleanAnalysis.languageBreakdown || {}).substring(0, 500)}
-- Key files: ${JSON.stringify(cleanAnalysis.keyFiles || []).substring(0, 500)}
-- Entry points: ${JSON.stringify(cleanAnalysis.entryPoints || []).substring(0, 500)}
-- Config files: ${JSON.stringify(cleanAnalysis.configFiles || []).substring(0, 300)}
+- Languages: ${JSON.stringify(cleanAnalysis.languageBreakdown || {}).substring(0, 1500)}
+- Key files: ${JSON.stringify(cleanAnalysis.keyFiles || []).substring(0, 1500)}
+- Entry points: ${JSON.stringify(cleanAnalysis.entryPoints || []).substring(0, 1000)}
+- Config files: ${JSON.stringify(cleanAnalysis.configFiles || []).substring(0, 800)}
 
 **Key Source Code:**
-${JSON.stringify(codeSummaries, null, 2).substring(0, 15000)}`;
+${JSON.stringify(codeSummaries, null, 2).substring(0, 50000)}`;
 
       if (signatures && signatures.length > 0) {
-        userContent += `\n\n**Function/Class Signatures:**\n${JSON.stringify(signatures, null, 2).substring(0, 3000)}`;
+        userContent += `\n\n**Function/Class Signatures:**\n${JSON.stringify(signatures, null, 2).substring(0, 10000)}`;
       }
 
       // Verified commands — high trust section
