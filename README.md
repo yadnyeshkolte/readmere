@@ -6,7 +6,6 @@
 [![Built with Archestra](https://img.shields.io/badge/Built%20with-Archestra%20MCP-00d4aa?style=for-the-badge)](https://archestra.ai)
 [![Powered by Gemini](https://img.shields.io/badge/Powered%20by-Gemini%202.5%20Flash-4285F4?style=for-the-badge&logo=google&logoColor=white)](https://aistudio.google.com)
 [![MCP Protocol](https://img.shields.io/badge/Protocol-MCP-blue?style=for-the-badge)](https://modelcontextprotocol.io)
-[![Hackathon](https://img.shields.io/badge/Hackathon-2%20Fast%202%20MCP-red?style=for-the-badge)](https://devpost.com)
 
 ---
 
