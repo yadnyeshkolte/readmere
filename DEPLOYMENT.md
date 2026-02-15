@@ -1,110 +1,161 @@
-# 🚀 Deployment Guide for README Resurrector
+# 🚀 Deployment Guide
 
-This guide explains how to deploy the full stack (Frontend, Backend, Archestra, and MCP Agents) to a public server (VPS) so anyone can access it.
+> Deploy README Resurrector to production. Three components: **Engine** (backend + 5 MCP servers), **Frontend**, and **Archestra Platform**.
 
-## 📋 Prerequisites
+---
 
-1.  **A Cloud Server (VPS)**:
-    - Providers: DigitalOcean, AWS (EC2), Hetzner, Vultr, Linode.
-    - OS: Ubuntu 22.04 LTS (Recommended).
-    - Specs: At least 4GB RAM (8GB recommended for comfortable orchestration).
-2.  **Domain Name (Optional)**: If you want `your-app.com` instead of an IP address.
+## Prerequisites
 
-## 🛠️ Step 1: Prepare the Server
+| Requirement | How to Get |
+|-------------|-----------|
+| **Gemini API Key** | [aistudio.google.com/apikey](https://aistudio.google.com/apikey) — free, 1500 req/day |
+| **GitHub Token** | [github.com/settings/tokens](https://github.com/settings/tokens) — optional, increases rate limits |
+| **Node.js 20+** | For local development |
+| **Docker** | For containerized deployment |
 
-SSH into your server and install Docker & Docker Compose:
+---
 
-```bash
-# Update system
-sudo apt update && sudo apt upgrade -y
+## Option 1: Hugging Face Spaces (Current Production Setup)
 
-# Install Docker
-curl -fsSL https://get.docker.com -o get-docker.sh
-sudo sh get-docker.sh
+### Engine (Backend + MCP Servers)
+1. Create a new HF Space → SDK: **Docker**
+2. Upload the contents of `readmere-huggingface-engine/`
+3. Add Secrets: `GEMINI_API_KEY`, `GITHUB_TOKEN`
+4. The Dockerfile builds all 5 MCP servers + backend and starts them
+5. Engine listens on port **7860** (HF default)
 
-# Install Docker Compose (if not included)
-sudo apt install docker-compose-plugin
-```
+### Archestra Platform
+1. Create another HF Space → SDK: **Docker**
+2. Upload the contents of `archestra-platform/`
+3. Add Secret: `ARCHESTRA_CHAT_GEMINI_API_KEY`
+4. Register MCP servers via the Archestra admin UI using the engine Space's public URL
 
-## 📦 Step 2: Clone & Configure
+### Frontend (Vercel)
+1. Connect your GitHub repo to Vercel
+2. Set root directory to `frontend/`
+3. Add env var: `NEXT_PUBLIC_API_URL` = your engine Space's public URL (e.g., `https://yadnyeshkolte-readmere.hf.space`)
+4. Deploy
 
-1.  **Clone the repository** to your server:
-    ```bash
-    git clone https://github.com/your-repo/readmere.git
-    cd readmere
-    ```
+---
 
-2.  **Set up Environment Variables**:
-    ```bash
-    cp .env.example .env
-    nano .env
-    ```
-
-    **Crucial Configuration:**
-    - `GROQ_API_KEY`: Your Groq key.
-    - `GITHUB_TOKEN`: Your GitHub PAT.
-    - `NEXT_PUBLIC_API_URL`: Set this to your **Public IP or Domain**.
-      - Example (IP): `http://123.45.67.89:8080`
-      - Example (Domain): `https://api.yourdomain.com` (if using reverse proxy)
-      - *Note: If you leave it as localhost, the frontend will try to connect to localhost on the **user's** machine, which won't work.*
-
-## 🚀 Step 3: Build and Run
-
-Run the stack in detached mode:
+## Option 2: Docker Compose (Local/VPS)
 
 ```bash
+# Clone
+git clone https://github.com/yadnyeshkolte/readmere.git
+cd readmere
+
+# Configure
+cp .env.example .env
+# Edit .env:
+#   GEMINI_API_KEY=your_key
+#   GITHUB_TOKEN=your_token
+#   NEXT_PUBLIC_API_URL=http://localhost:8080  (or your public IP/domain)
+
+# Start everything
 docker compose up -d --build
 ```
 
-This will:
-1.  Start the **Archestra Platform** (Port 9000 & 3000).
-2.  Build and start the **MCP Agents** (Ports 3002, 3003, 3004).
-3.  Start the **Backend** (Port 8080).
-4.  Build and start the **Frontend** (Port 3001).
+This starts:
+- **Archestra Platform** — Port 3000 (admin), Port 9000 (runtime)
+- **Repo Analyzer** — Port 3002
+- **Code Reader** — Port 3003
+- **Doc Generator** — Port 3004
+- **Backend** — Port 8080
+- **Frontend** — Port 3001
 
-## 🔗 Step 4: Configure Archestra (One-Time Setup)
+> **Note**: The docker-compose currently starts 3 MCP servers. The scorer (3005) and improver (3006) run inside the backend container. For full separation, add them as services.
 
-Since the agents are now running in Docker, you must tell Archestra where to find them.
+### Configure Archestra (One-Time)
+1. Open `http://localhost:3000` (Archestra Admin)
+2. Add agents:
+   - Repo Analyzer: SSE → `http://repo-analyzer:3002/sse`
+   - Code Reader: SSE → `http://code-reader:3003/sse`
+   - Doc Generator: SSE → `http://doc-generator:3004/sse`
+3. Create a profile, copy the Profile ID
+4. Set `ARCHESTRA_PROFILE_ID` in `.env` and restart backend
 
-1.  Open your browser and go to `http://<YOUR_SERVER_IP>:3000` (Archestra Admin).
-2.  **Add Tools / Agents**:
-    - **Repo Analyzer**:
-      - Type: SSE
-      - URL: `http://repo-analyzer:3002/sse`
-    - **Code Reader**:
-      - Type: SSE
-      - URL: `http://code-reader:3003/sse`
-    - **Doc Generator**:
-      - Type: SSE
-      - URL: `http://doc-generator:3004/sse`
+---
 
-3.  **Create a Profile**:
-    - Name: `readmere-production`
-    - Add the 3 agents you just created.
-    - Copy the **Profile ID**.
+## Option 3: VPS (Manual)
 
-4.  **Update Backend**:
-    - SSH back into your server.
-    - Update `.env`: `ARCHESTRA_PROFILE_ID=your_copied_id`.
-    - Restart backend: `docker compose restart backend`.
+### 1. Server Setup
+```bash
+sudo apt update && sudo apt upgrade -y
+curl -fsSL https://get.docker.com -o get-docker.sh && sudo sh get-docker.sh
+sudo apt install docker-compose-plugin
+```
 
-## 🌐 Step 5: Access the App
+### 2. Deploy
+```bash
+git clone https://github.com/yadnyeshkolte/readmere.git
+cd readmere
+# Configure .env (see above)
+docker compose up -d --build
+```
 
-Your application is now live!
-- **Frontend**: `http://<YOUR_SERVER_IP>:3001`
+### 3. Reverse Proxy (Optional)
+For proper domains with HTTPS:
+```nginx
+# /etc/nginx/sites-available/readmere
+server {
+    listen 80;
+    server_name readmere.yourdomain.com;
+    location / { proxy_pass http://localhost:3001; }
+}
+server {
+    listen 80;
+    server_name api.readmere.yourdomain.com;
+    location / { proxy_pass http://localhost:8080; }
+}
+```
 
-### (Optional) Production Polish: Reverse Proxy (Nginx)
+---
 
-To use standard ports (80/443) and proper domains:
+## Option 4: Run Without Docker
 
-1.  Install Nginx: `sudo apt install nginx`
-2.  Configure sites to proxy:
-    - `yourdomain.com` -> `localhost:3001` (Frontend)
-    - `api.yourdomain.com` -> `localhost:8080` (Backend)
-    - `admin.yourdomain.com` -> `localhost:3000` (Archestra)
+```bash
+# Install dependencies
+for dir in mcp-servers/repo-analyzer mcp-servers/code-reader mcp-servers/doc-generator mcp-servers/readme-scorer mcp-servers/readme-improver backend frontend; do
+  (cd $dir && npm install)
+done
 
-## ⚠️ Important Note on Code Changes
+# Set environment
+export GEMINI_API_KEY=your_key
+export GITHUB_TOKEN=your_token
 
-We have modified the MCP servers (`mcp-servers/*/src/index.ts`) to support **SSE (Server-Sent Events)** over HTTP. This allows them to run as proper microservices in the Docker network.
-- **Local Development**: They still work in CLI mode if you run them directly.
-- **Docker/Cloud**: They automatically detect the `PORT` variable and start an HTTP server.
+# Start 5 MCP servers
+PORT=3002 npx tsx mcp-servers/repo-analyzer/src/index.mts &
+PORT=3003 npx tsx mcp-servers/code-reader/src/index.mts &
+PORT=3004 npx tsx mcp-servers/doc-generator/src/index.mts &
+PORT=3005 npx tsx mcp-servers/readme-scorer/src/index.mts &
+PORT=3006 npx tsx mcp-servers/readme-improver/src/index.mts &
+
+# Start backend & frontend
+cd backend && npm run dev &
+cd ../frontend && NEXT_PUBLIC_API_URL=http://localhost:8080 npm run dev
+```
+
+---
+
+## Environment Variables
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `GEMINI_API_KEY` | Yes | Google AI Studio API key |
+| `GITHUB_TOKEN` | Recommended | GitHub PAT for higher rate limits |
+| `NEXT_PUBLIC_API_URL` | Yes (frontend) | Backend URL — must be accessible from user's browser |
+| `PORT` | Auto-set | Backend port (7860 for HF, 8080 for docker-compose) |
+
+## File Sync Workflow
+
+The project has two copies of backend + MCP servers:
+- `backend/` and `mcp-servers/` — root level (for local dev)
+- `readmere-huggingface-engine/backend/` and `readmere-huggingface-engine/mcp-servers/` — HF deployment
+
+**Always edit root-level files first**, then sync:
+```bash
+# Sync to HF engine
+Copy-Item -Force "mcp-servers\*\src\*" "readmere-huggingface-engine\mcp-servers\*\src\"
+Copy-Item -Force "backend\src\*" "readmere-huggingface-engine\backend\src\"
+```

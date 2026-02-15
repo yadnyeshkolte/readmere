@@ -1,8 +1,8 @@
 {
-  "name": "repo-analyzer",
+  "name": "readme-scorer",
   "version": "1.0.0",
   "type": "module",
-  "description": "MCP server for analyzing GitHub repositories",
+  "description": "MCP server for scoring and validating README quality",
   "main": "dist/index.mjs",
   "scripts": {
     "build": "tsc",
